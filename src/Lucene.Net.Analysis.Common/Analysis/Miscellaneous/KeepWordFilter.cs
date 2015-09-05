@@ -1,6 +1,8 @@
 ﻿using System;
 using Lucene.Net.Analysis.Tokenattributes;
 using Lucene.Net.Analysis.Util;
+using Reader = System.IO.TextReader;
+using Version = Lucene.Net.Util.LuceneVersion;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -30,7 +32,7 @@ namespace Lucene.Net.Analysis.Miscellaneous
     public sealed class KeepWordFilter : FilteringTokenFilter
     {
         private readonly CharArraySet words;
-        private readonly CharTermAttribute termAtt = addAttribute(typeof(CharTermAttribute));
+        private readonly ICharTermAttribute termAtt;
 
         /// @deprecated enablePositionIncrements=false is not supported anymore as of Lucene 4.4. 
         [Obsolete("enablePositionIncrements=false is not supported anymore as of Lucene 4.4.")]
@@ -38,6 +40,7 @@ namespace Lucene.Net.Analysis.Miscellaneous
             : base(version, enablePositionIncrements, @in)
         {
             this.words = words;
+            termAtt = AddAttribute<ICharTermAttribute>();
         }
 
         /// <summary>
@@ -55,7 +58,7 @@ namespace Lucene.Net.Analysis.Miscellaneous
             this.words = words;
         }
 
-        public override bool Accept()
+        protected internal override bool Accept()
         {
             return words.Contains(termAtt.Buffer(), 0, termAtt.Length);
         }

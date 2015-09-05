@@ -238,9 +238,14 @@ namespace Lucene.Net.Codecs.BlockTerms
             _postingsReader.CheckIntegrity();
         }
 
-        public override int Size()
+        public override int Size
         {
-            return _fields.Count;
+            get
+            {
+                {
+                    return _fields.Count;
+                }
+            }
         }
 
         /// <summary>
@@ -250,10 +255,6 @@ namespace Lucene.Net.Codecs.BlockTerms
         {
             public String Field { get; set; }
             private BytesRef Term { get; set; }
-
-            public FieldAndTerm()
-            {
-            }
 
             private FieldAndTerm(FieldAndTerm other)
             {
@@ -275,6 +276,11 @@ namespace Lucene.Net.Codecs.BlockTerms
             public override int GetHashCode()
             {
                 return Field.GetHashCode() * 31 + Term.GetHashCode();
+            }
+
+            public FieldAndTerm()
+            {
+
             }
         }
 
@@ -482,7 +488,7 @@ namespace Lucene.Net.Codecs.BlockTerms
 
                         // Ask terms index to find biggest indexed term (=
                         // first term in a block) that's <= our text:
-                        _input.Seek(_indexEnum.Seek(target));
+                        _input.Seek(_indexEnum.Seek(target).Value);
                         var result = NextBlock();
 
                         // Block must exist since, at least, the indexed term
@@ -805,7 +811,7 @@ namespace Lucene.Net.Codecs.BlockTerms
                     // TODO: if ord is in same terms block and
                     // after current ord, we should avoid this seek just
                     // like we do in the seek(BytesRef) case
-                    _input.Seek(_indexEnum.Seek(ord));
+                    _input.Seek(_indexEnum.Seek(ord).Value);
                     bool result = NextBlock();
 
                     // Block must exist since ord < numTerms:

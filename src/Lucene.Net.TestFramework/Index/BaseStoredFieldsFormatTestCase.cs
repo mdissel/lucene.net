@@ -1,4 +1,5 @@
 using Apache.NMS.Util;
+using Lucene.Net.Attributes;
 using Lucene.Net.Codecs;
 using Lucene.Net.Documents;
 using Lucene.Net.Randomized.Generators;
@@ -262,9 +263,9 @@ namespace Lucene.Net.Index
         public void TestNumericField()
         {
             Directory dir = NewDirectory();
-            RandomIndexWriter w = new RandomIndexWriter(Random(), dir);
-            int numDocs = AtLeast(500);
-            object[] answers = new Number[numDocs];
+            var w = new RandomIndexWriter(Random(), dir);
+            var numDocs = AtLeast(500);
+            var answers = new object[numDocs];
             FieldType.NumericType[] typeAnswers = new FieldType.NumericType[numDocs];
             for (int id = 0; id < numDocs; id++)
             {
@@ -400,9 +401,9 @@ namespace Lucene.Net.Index
             foreach (Field fld in fields)
             {
                 string fldName = fld.Name();
-                Document sDoc = reader.Document(docID, CollectionsHelper.Singleton(fldName));
+                Document sDoc = reader.Document(docID, Collections.Singleton(fldName));
                 IndexableField sField = sDoc.GetField(fldName);
-                if (typeof(Field).Equals(fld.GetType()))
+                if (typeof(Field) == fld.GetType())
                 {
                     Assert.AreEqual(fld.BinaryValue(), sField.BinaryValue());
                     Assert.AreEqual(fld.StringValue, sField.StringValue);
@@ -417,7 +418,7 @@ namespace Lucene.Net.Index
             dir.Dispose();
         }
 
-        [Test]
+        [Test, Timeout(300000)]
         public void TestEmptyDocs()
         {
             Directory dir = NewDirectory();
@@ -446,7 +447,7 @@ namespace Lucene.Net.Index
             dir.Dispose();
         }
 
-        [Test]
+        [Test, Timeout(300000)]
         public void TestConcurrentReads()
         {
             Directory dir = NewDirectory();
@@ -474,7 +475,7 @@ namespace Lucene.Net.Index
             AtomicReference<Exception> ex = new AtomicReference<Exception>();
             for (int i = 0; i < concurrentReads; ++i)
             {
-                readThreads.Add(new ThreadAnonymousInnerClassHelper(this, numDocs, rd, searcher, readsPerThread, ex, i));
+                readThreads.Add(new ThreadAnonymousInnerClassHelper(numDocs, rd, searcher, readsPerThread, ex, i));
             }
             foreach (ThreadClass thread in readThreads)
             {
@@ -496,19 +497,16 @@ namespace Lucene.Net.Index
 
         private class ThreadAnonymousInnerClassHelper : ThreadClass
         {
-            private readonly BaseStoredFieldsFormatTestCase OuterInstance;
-
             private int NumDocs;
-            private DirectoryReader Rd;
-            private IndexSearcher Searcher;
+            private readonly DirectoryReader Rd;
+            private readonly IndexSearcher Searcher;
             private int ReadsPerThread;
             private AtomicReference<Exception> Ex;
             private int i;
             private readonly int[] queries;
 
-            public ThreadAnonymousInnerClassHelper(BaseStoredFieldsFormatTestCase outerInstance, int numDocs, DirectoryReader rd, IndexSearcher searcher, int readsPerThread, AtomicReference<Exception> ex, int i)
+            public ThreadAnonymousInnerClassHelper(int numDocs, DirectoryReader rd, IndexSearcher searcher, int readsPerThread, AtomicReference<Exception> ex, int i)
             {
-                this.OuterInstance = outerInstance;
                 this.NumDocs = numDocs;
                 this.Rd = rd;
                 this.Searcher = searcher;
@@ -519,7 +517,7 @@ namespace Lucene.Net.Index
                 queries = new int[ReadsPerThread];
                 for (int j = 0; j < queries.Length; ++j)
                 {
-                    queries[j] = Random().NextIntBetween(0, NumDocs);
+                    queries[j] = Random().Next(NumDocs);
                 }
             }
 
@@ -533,6 +531,7 @@ namespace Lucene.Net.Index
                         TopDocs topDocs = Searcher.Search(query, 1);
                         if (topDocs.TotalHits != 1)
                         {
+                            Console.WriteLine(query);
                             throw new InvalidOperationException("Expected 1 hit, got " + topDocs.TotalHits);
                         }
                         Document sdoc = Rd.Document(topDocs.ScoreDocs[0].Doc);
@@ -670,8 +669,7 @@ namespace Lucene.Net.Index
             dir.Dispose();
         }
 
-        [Test]
-        //ORIGINAL LINE: @Nightly public void testBigDocuments() throws java.io.IOException
+        [Test, LongRunningTest, Timeout(int.MaxValue)]
         public void TestBigDocuments()
         {
             // "big" as "much bigger than the chunk size"

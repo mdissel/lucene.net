@@ -30,7 +30,6 @@ namespace Lucene.Net.Index
     using InfoStream = Lucene.Net.Util.InfoStream;
     using PrintStreamInfoStream = Lucene.Net.Util.PrintStreamInfoStream;
     using Similarity = Lucene.Net.Search.Similarities.Similarity;
-    using Version = Lucene.Net.Util.Version;
 
     /// <summary>
     /// Holds all the configuration that is used to create an <seealso cref="IndexWriter"/>.
@@ -169,7 +168,7 @@ namespace Lucene.Net.Index
 
         /// <summary>
         /// Creates a new config that with defaults that match the specified
-        /// <seealso cref="Version"/> as well as the default {@link
+        /// <seealso cref="LuceneVersion"/> as well as the default {@link
         /// Analyzer}. If matchVersion is >= {@link
         /// Version#LUCENE_32}, <seealso cref="TieredMergePolicy"/> is used
         /// for merging; else <seealso cref="LogByteSizeMergePolicy"/>.
@@ -179,7 +178,7 @@ namespace Lucene.Net.Index
         /// should switch to <seealso cref="LogByteSizeMergePolicy"/> or
         /// <seealso cref="LogDocMergePolicy"/>.
         /// </summary>
-        public IndexWriterConfig(Version matchVersion, Analyzer analyzer)
+        public IndexWriterConfig(LuceneVersion matchVersion, Analyzer analyzer)
             : base(analyzer, matchVersion)
         {
         }
@@ -702,6 +701,11 @@ namespace Lucene.Net.Index
         public IndexWriterConfig SetUseCompoundFile(bool useCompoundFile)
         {
             return (IndexWriterConfig)base.SetUseCompoundFile(useCompoundFile);
+        }
+
+        public IndexWriterConfig SetCheckIntegrityAtMerge(bool checkIntegrityAtMerge)
+        {
+            return (IndexWriterConfig)base.SetCheckIntegrityAtMerge(checkIntegrityAtMerge);
         }
 
         public override string ToString()

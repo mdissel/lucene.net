@@ -45,7 +45,7 @@ namespace Lucene.Net.Codecs.SimpleText
     using IntsRef = Util.IntsRef;
     using StringHelper = Util.StringHelper;
     using UnicodeUtil = Util.UnicodeUtil;
-    using BytesRefFSTEnum = Util.Fst.BytesRefFSTEnum<Util.Fst.PairOutputs<long,long>.Pair<long, Util.Fst.PairOutputs<long,long>.Pair<long, long>>>;
+    using BytesRefFSTEnum = Util.Fst.BytesRefFSTEnum<Util.Fst.PairOutputs<long,long>.Pair>;
     using FST = Util.Fst.FST;
     using PairOutputs = Util.Fst.PairOutputs<long,long>;
     using PositiveIntOutputs = Util.Fst.PositiveIntOutputs;
@@ -115,14 +115,14 @@ namespace Lucene.Net.Codecs.SimpleText
             private long _totalTermFreq;
             private long _docsStart;
             
-            private readonly BytesRefFSTEnum<PairOutputs<long, PairOutputs.Pair<long, long>>.Pair<long, PairOutputs.Pair<long, long>>> _fstEnum;
+            private readonly BytesRefFSTEnum<PairOutputs<long?, PairOutputs<long?,long?>.Pair>.Pair> _fstEnum;
 
             public SimpleTextTermsEnum(SimpleTextFieldsReader outerInstance,
-                FST<PairOutputs<long, PairOutputs.Pair<long, long>>.Pair<long, PairOutputs.Pair<long, long>>> fst, IndexOptions indexOptions)
+                FST<PairOutputs<long?, PairOutputs<long?,long?>.Pair>.Pair> fst, IndexOptions indexOptions)
             {
                 _outerInstance = outerInstance;
                 _indexOptions = indexOptions;
-                _fstEnum = new BytesRefFSTEnum<PairOutputs<long, PairOutputs.Pair<long, long>>.Pair<long, PairOutputs.Pair<long, long>>>(fst);
+                _fstEnum = new BytesRefFSTEnum<PairOutputs<long?, PairOutputs<long?,long?>.Pair>.Pair>(fst);
             }
 
             public override bool SeekExact(BytesRef text)
@@ -134,9 +134,9 @@ namespace Lucene.Net.Codecs.SimpleText
                 
                 var pair1 = result.Output;
                 var pair2 = pair1.Output2;
-                _docsStart = pair1.Output1;
+                _docsStart = pair1.Output1.Value;
                 _docFreq = (int) pair2.Output1;
-                _totalTermFreq = pair2.Output2;
+                _totalTermFreq = pair2.Output2.Value;
                 return true;
             }
 
@@ -148,9 +148,9 @@ namespace Lucene.Net.Codecs.SimpleText
 
                 var pair1 = result.Output;
                 var pair2 = pair1.Output2;
-                _docsStart = pair1.Output1;
+                _docsStart = pair1.Output1.Value;
                 _docFreq = (int) pair2.Output1;
-                _totalTermFreq = pair2.Output2;
+                _totalTermFreq = pair2.Output2.Value;
 
                 return result.Input.Equals(text) ? SeekStatus.FOUND : SeekStatus.NOT_FOUND;
 
@@ -164,9 +164,9 @@ namespace Lucene.Net.Codecs.SimpleText
 
                 var pair1 = result.Output;
                 var pair2 = pair1.Output2;
-                _docsStart = pair1.Output1;
+                _docsStart = pair1.Output1.Value;
                 _docFreq = (int)pair2.Output1;
-                _totalTermFreq = pair2.Output2;
+                _totalTermFreq = pair2.Output2.Value;
                 return result.Input;
             }
 
@@ -306,7 +306,7 @@ namespace Lucene.Net.Codecs.SimpleText
                         }
                         UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.DOC.Length, _scratch.Length - SimpleTextFieldsWriter.DOC.Length,
                             _scratchUtf16);
-                        _docId = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+                        _docId = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
                         termFreq = 0;
                         first = false;
                     }
@@ -314,7 +314,7 @@ namespace Lucene.Net.Codecs.SimpleText
                     {
                         UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.FREQ.Length,
                             _scratch.Length - SimpleTextFieldsWriter.FREQ.Length, _scratchUtf16);
-                        termFreq = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+                        termFreq = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
                     }
                     else if (StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.POS))
                     {
@@ -440,7 +440,7 @@ namespace Lucene.Net.Codecs.SimpleText
                         }
                         UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.DOC.Length, _scratch.Length - SimpleTextFieldsWriter.DOC.Length,
                             _scratchUtf16);
-                        _docId = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+                        _docId = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
                         _tf = 0;
                         first = false;
                     }
@@ -448,7 +448,7 @@ namespace Lucene.Net.Codecs.SimpleText
                     {
                         UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.FREQ.Length,
                             _scratch.Length - SimpleTextFieldsWriter.FREQ.Length, _scratchUtf16);
-                        _tf = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+                        _tf = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
                         posStart = _in.FilePointer;
                     }
                     else if (StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.POS))
@@ -498,7 +498,7 @@ namespace Lucene.Net.Codecs.SimpleText
                     Debug.Assert(StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.POS), "got line=" + _scratch.Utf8ToString());
                     UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.POS.Length, _scratch.Length - SimpleTextFieldsWriter.POS.Length,
                         _scratchUtf162);
-                    pos = ArrayUtil.ParseInt(_scratchUtf162.Chars, 0, _scratchUtf162.length);
+                    pos = ArrayUtil.ParseInt(_scratchUtf162.Chars, 0, _scratchUtf162.Length);
                 }
                 else
                 {
@@ -511,12 +511,12 @@ namespace Lucene.Net.Codecs.SimpleText
                     Debug.Assert(StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.START_OFFSET), "got line=" + _scratch.Utf8ToString());
                     UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.START_OFFSET.Length,
                         _scratch.Length - SimpleTextFieldsWriter.START_OFFSET.Length, _scratchUtf162);
-                    _startOffset = ArrayUtil.ParseInt(_scratchUtf162.Chars, 0, _scratchUtf162.length);
+                    _startOffset = ArrayUtil.ParseInt(_scratchUtf162.Chars, 0, _scratchUtf162.Length);
                     SimpleTextUtil.ReadLine(_in, _scratch);
                     Debug.Assert(StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.END_OFFSET), "got line=" + _scratch.Utf8ToString());
                     UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.END_OFFSET.Length,
                         _scratch.Length - SimpleTextFieldsWriter.END_OFFSET.Length, _scratchUtf162);
-                    _endOffset = ArrayUtil.ParseInt(_scratchUtf162.Chars, 0, _scratchUtf162.length);
+                    _endOffset = ArrayUtil.ParseInt(_scratchUtf162.Chars, 0, _scratchUtf162.Length);
                 }
 
                 long fp = _in.FilePointer;
@@ -583,7 +583,7 @@ namespace Lucene.Net.Codecs.SimpleText
             private long _sumTotalTermFreq;
             private long _sumDocFreq;
             private int _docCount;
-            private FST<PairOutputs<long, PairOutputs.Pair<long, long>>.Pair<long, PairOutputs.Pair<long, long>>> _fst;
+            private FST<PairOutputs<long?, PairOutputs<long?,long?>.Pair>.Pair> _fst;
             private int _termCount;
             private readonly BytesRef _scratch = new BytesRef(10);
             private readonly CharsRef _scratchUtf16 = new CharsRef(10);
@@ -600,11 +600,11 @@ namespace Lucene.Net.Codecs.SimpleText
             private void LoadTerms()
             {
                 var posIntOutputs = PositiveIntOutputs.Singleton;
-                var outputsInner = new PairOutputs<long, long>(posIntOutputs, posIntOutputs);
-                var outputs = new PairOutputs<long, PairOutputs.Pair<long, long>>(posIntOutputs, outputsInner);
-
+                var outputsInner = new PairOutputs<long?, long?>(posIntOutputs, posIntOutputs);
+                var outputs = new PairOutputs<long?, PairOutputs<long?,long?>.Pair>(posIntOutputs, outputsInner);
+                
                 // honestly, wtf kind of generic mess is this.
-                var b = new Builder<PairOutputs<long, PairOutputs.Pair<long, long>>.Pair<long, PairOutputs.Pair<long, long>>>(FST.INPUT_TYPE.BYTE1, outputs);
+                var b = new Builder<PairOutputs<long?, PairOutputs<long?,long?>.Pair>.Pair>(FST.INPUT_TYPE.BYTE1, outputs);
                 var input = (IndexInput) _outerInstance._input.Clone();
                 input.Seek(_termsStart);
 
@@ -635,14 +635,14 @@ namespace Lucene.Net.Codecs.SimpleText
                         _sumDocFreq++;
                         UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.DOC.Length, _scratch.Length - SimpleTextFieldsWriter.DOC.Length,
                             _scratchUtf16);
-                        int docId = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+                        int docId = ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
                         visitedDocs.Set(docId);
                     }
                     else if (StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.FREQ))
                     {
                         UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + SimpleTextFieldsWriter.FREQ.Length,
                             _scratch.Length - SimpleTextFieldsWriter.FREQ.Length, _scratchUtf16);
-                        totalTermFreq += ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+                        totalTermFreq += ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
                     }
                     else if (StringHelper.StartsWith(_scratch, SimpleTextFieldsWriter.TERM))
                     {

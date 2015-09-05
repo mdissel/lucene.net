@@ -1,4 +1,9 @@
-﻿namespace org.apache.lucene.analysis.shingle
+﻿using Lucene.Net.Analysis.Standard;
+using Lucene.Net.Util;
+using org.apache.lucene.analysis.shingle;
+using org.apache.lucene.analysis.standard;
+
+namespace Lucene.Net.Analysis.Shingle
 {
 
 	/*
@@ -17,9 +22,6 @@
 	 * See the License for the specific language governing permissions and
 	 * limitations under the License.
 	 */
-
-	using StandardAnalyzer = org.apache.lucene.analysis.standard.StandardAnalyzer;
-	using Version = org.apache.lucene.util.Version;
 
 	/// <summary>
 	/// A ShingleAnalyzerWrapper wraps a <seealso cref="ShingleFilter"/> around another <seealso cref="Analyzer"/>.
@@ -94,14 +96,14 @@
 	  /// <summary>
 	  /// Wraps <seealso cref="StandardAnalyzer"/>. 
 	  /// </summary>
-	  public ShingleAnalyzerWrapper(Version matchVersion) : this(matchVersion, ShingleFilter.DEFAULT_MIN_SHINGLE_SIZE, ShingleFilter.DEFAULT_MAX_SHINGLE_SIZE)
+	  public ShingleAnalyzerWrapper(LuceneVersion matchVersion) : this(matchVersion, ShingleFilter.DEFAULT_MIN_SHINGLE_SIZE, ShingleFilter.DEFAULT_MAX_SHINGLE_SIZE)
 	  {
 	  }
 
 	  /// <summary>
 	  /// Wraps <seealso cref="StandardAnalyzer"/>. 
 	  /// </summary>
-	  public ShingleAnalyzerWrapper(Version matchVersion, int minShingleSize, int maxShingleSize) : this(new StandardAnalyzer(matchVersion), minShingleSize, maxShingleSize)
+	  public ShingleAnalyzerWrapper(LuceneVersion matchVersion, int minShingleSize, int maxShingleSize) : this(new StandardAnalyzer(matchVersion), minShingleSize, maxShingleSize)
 	  {
 	  }
 

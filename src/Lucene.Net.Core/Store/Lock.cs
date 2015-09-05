@@ -20,8 +20,6 @@ namespace Lucene.Net.Store
      * limitations under the License.
      */
 
-    using ThreadInterruptedException = Lucene.Net.Util.ThreadInterruptedException;
-
     /// <summary>
     /// An interprocess mutex lock.
     /// <p>Typical use might look like:<pre class="prettyprint">
@@ -32,9 +30,7 @@ namespace Lucene.Net.Store
     ///   }.run();
     /// </pre>
     /// </summary>
-    /// <seealso cref= Directory#makeLock(String)
-    ///
-    /// @lucene.internal </seealso>
+    /// <seealso cref="Directory#makeLock(String)"/>
     public abstract class Lock : IDisposable
     {
         /// <summary>
@@ -61,7 +57,7 @@ namespace Lucene.Net.Store
         /// with the "root cause" Exception as to why the lock was
         /// not obtained.
         /// </summary>
-        protected internal Exception FailureReason;
+        public Exception FailureReason { get; protected set; }
 
         /// <summary>
         /// Attempts to obtain an exclusive lock within amount of
@@ -108,7 +104,7 @@ namespace Lucene.Net.Store
                 }
                 catch (ThreadInterruptedException ie)
                 {
-                    throw new ThreadInterruptedException(ie);
+                    throw new ThreadInterruptedException("Thread Interrupted Exception", ie);
                 }
                 locked = Obtain();
             }
@@ -121,6 +117,7 @@ namespace Lucene.Net.Store
 
         public virtual void Dispose()
         {
+            Release();
         }
 
         /// <summary>

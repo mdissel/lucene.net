@@ -15,6 +15,7 @@
 * limitations under the License.
 */
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
@@ -189,7 +190,7 @@ namespace Lucene.Net.Util
     /// </ul>
     /// </summary>
     [TestFixture]
-    public abstract class LuceneTestCase : Assert // Wait long for leaked threads to complete before failure. zk needs this. -  See LUCENE-3995 for rationale.
+    public abstract partial class LuceneTestCase : Assert // Wait long for leaked threads to complete before failure. zk needs this. -  See LUCENE-3995 for rationale.
     {
         public static System.IO.FileInfo TEMP_DIR;
 
@@ -216,54 +217,7 @@ namespace Lucene.Net.Util
         /// <seealso> cref= #ignoreAfterMaxFailures </seealso>
         public const string SYSPROP_FAILFAST = "tests.failfast";
 
-        public interface Nightly
-        {
-        }
-
-        public interface Weekly
-        {
-        }
-
-        /*/// <summary>
-      /// Annotation for tests that should only be run during nightly builds.
-      /// </summary>
-      public class Nightly : System.Attribute
-      /// <summary>
-      /// Annotation for tests that should only be run during weekly builds
-      /// </summary>
-      {
-          private readonly LuceneTestCase OuterInstance;
-
-          public Nightly(LuceneTestCase outerInstance)
-          {
-              this.OuterInstance = outerInstance;
-          }
-      }
-      public class Weekly : System.Attribute
-      /// <summary>
-      /// Annotation for tests which exhibit a known issue and are temporarily disabled.
-      /// </summary>
-      {
-          private readonly LuceneTestCase OuterInstance;
-
-          public Weekly(LuceneTestCase outerInstance)
-          {
-              this.OuterInstance = outerInstance;
-          }
-      }
-      public class AwaitsFix : System.Attribute
-      {
-          private readonly LuceneTestCase OuterInstance;
-
-          public AwaitsFix(LuceneTestCase outerInstance)
-          {
-              this.OuterInstance = outerInstance;
-          }
-
-        /// <summary>
-        /// Point to JIRA entry. </summary>
-        public string bugUrl();
-      }
+        /*     
 
       /// <summary>
       /// Annotation for tests that are slow. Slow tests do run by default but can be
@@ -332,7 +286,7 @@ namespace Lucene.Net.Util
         /// Use this constant when creating Analyzers and any other version-dependent stuff.
         /// <p><b>NOTE:</b> Change this when development starts for new Lucene version:
         /// </summary>
-        public static Version TEST_VERSION_CURRENT = Version.LUCENE_48;
+        public static LuceneVersion TEST_VERSION_CURRENT = LuceneVersion.LUCENE_48;
 
         /// <summary>
         /// True if and only if tests are run in verbose mode. If this flag is false
@@ -340,11 +294,11 @@ namespace Lucene.Net.Util
         /// </summary>
         public static bool VERBOSE = RandomizedTest.SystemPropertyAsBoolean("tests.verbose",
 #if DEBUG
-            true
+ true
 #else
             false
 #endif
-            );
+);
 
         /// <summary>
         /// TODO: javadoc? </summary>
@@ -485,10 +439,11 @@ namespace Lucene.Net.Util
         /// </summary>
         private static TestRuleSetupAndRestoreClassEnv ClassEnvRule;
 
+        // LUCENENET TODO
         /// <summary>
         /// Suite failure marker (any error in the test or suite scope).
         /// </summary>
-        //public static TestRuleMarkFailure SuiteFailureMarker;
+        public static /*TestRuleMarkFailure*/ bool SuiteFailureMarker = true; // Means: was successful
 
         /// <summary>
         /// Ignore tests after hitting a designated number of initial failures. this
@@ -609,7 +564,7 @@ namespace Lucene.Net.Util
         [SetUp]
         public virtual void SetUp()
         {
-            ///* LUCENE TO-DO: Not sure how to convert these
+            // LUCENENET TODO: Not sure how to convert these
             //ParentChainCallRule.SetupCalled = true;
             ClassEnvRule = new TestRuleSetupAndRestoreClassEnv();
         }
@@ -620,9 +575,10 @@ namespace Lucene.Net.Util
         [TearDown]
         public virtual void TearDown()
         {
-            /* LUCENE TO-DO: Not sure how to convert these
+            /* LUCENENET TODO: Not sure how to convert these
                 ParentChainCallRule.TeardownCalled = true;
                 */
+            CleanupTemporaryFiles();
         }
 
         // -----------------------------------------------------------------
@@ -651,9 +607,17 @@ namespace Lucene.Net.Util
         /// </summary>
         public static Random Random()
         {
-            return new Random(1);
+            return _random ?? (_random = new Random(/* LUCENENET TODO seed */));
             //return RandomizedContext.Current.Random;
         }
+
+        protected static Random randon()
+        {
+            return Random();
+        }
+
+        [ThreadStatic]
+        private static Random _random;
 
         /// <summary>
         /// Registers a <seealso cref="IDisposable"/> resource that should be closed after the test
@@ -682,7 +646,6 @@ namespace Lucene.Net.Util
         {
             get
             {
-                //return ClassNameRule.TestClass;
                 return typeof(LuceneTestCase);
             }
         }
@@ -822,12 +785,12 @@ namespace Lucene.Net.Util
 
         public static void AssumeTrue(string msg, bool condition)
         {
-            //RandomizedTest.AssumeTrue(msg, condition);
+            RandomizedTest.AssumeTrue(msg, condition);
         }
 
         public static void AssumeFalse(string msg, bool condition)
         {
-            //RandomizedTest.AssumeFalse(msg, condition);
+            RandomizedTest.AssumeFalse(msg, condition);
         }
 
         public static void AssumeNoException(string msg, Exception e)
@@ -879,14 +842,14 @@ namespace Lucene.Net.Util
 
         /// <summary>
         /// create a new index writer config with random defaults </summary>
-        public static IndexWriterConfig NewIndexWriterConfig(Version v, Analyzer a)
+        public static IndexWriterConfig NewIndexWriterConfig(LuceneVersion v, Analyzer a)
         {
             return NewIndexWriterConfig(Random(), v, a);
         }
 
         /// <summary>
         /// create a new index writer config with random defaults using the specified random </summary>
-        public static IndexWriterConfig NewIndexWriterConfig(Random r, Version v, Analyzer a)
+        public static IndexWriterConfig NewIndexWriterConfig(Random r, LuceneVersion v, Analyzer a)
         {
             IndexWriterConfig c = new IndexWriterConfig(v, a);
             c.SetSimilarity(ClassEnvRule.Similarity);
@@ -1020,6 +983,7 @@ namespace Lucene.Net.Util
         public static LogMergePolicy NewLogMergePolicy(Random r)
         {
             LogMergePolicy logmp = r.NextBoolean() ? (LogMergePolicy)new LogDocMergePolicy() : new LogByteSizeMergePolicy();
+            
             logmp.CalibrateSizeByDeletes = r.NextBoolean();
             if (Rarely(r))
             {
@@ -1239,16 +1203,16 @@ namespace Lucene.Net.Util
                 switch (random.Next(10))
                 {
                     case 3: // sometimes rate limit on flush
-                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.Context_e.FLUSH);
+                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.UsageContext.FLUSH);
                         break;
 
                     case 2: // sometimes rate limit flush & merge
-                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.Context_e.FLUSH);
-                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.Context_e.MERGE);
+                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.UsageContext.FLUSH);
+                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.UsageContext.MERGE);
                         break;
 
                     default:
-                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.Context_e.MERGE);
+                        rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, IOContext.UsageContext.MERGE);
                         break;
                 }
                 directory = rateLimitedDirectoryWrapper;
@@ -1257,7 +1221,7 @@ namespace Lucene.Net.Util
             if (bare)
             {
                 BaseDirectoryWrapper @base = new BaseDirectoryWrapper(directory);
-                //CloseAfterSuite(new IDisposableDirectory(@base, SuiteFailureMarker));
+                // LUCENENET TODO CloseAfterSuite(new IDisposableDirectory(@base, SuiteFailureMarker));
                 return @base;
             }
             else
@@ -1265,7 +1229,7 @@ namespace Lucene.Net.Util
                 MockDirectoryWrapper mock = new MockDirectoryWrapper(random, directory);
 
                 mock.Throttling = TEST_THROTTLING;
-                //CloseAfterSuite(new IDisposableDirectory(mock, SuiteFailureMarker));
+                // LUCENENET TODO CloseAfterSuite(new IDisposableDirectory(mock, SuiteFailureMarker));
                 return mock;
             }
         }
@@ -1409,11 +1373,14 @@ namespace Lucene.Net.Util
                 }
             }
 
-            Trace.TraceInformation("Type of Directory is : {0}", clazzName);
+            if (VERBOSE)
+            {
+                Trace.TraceInformation("Type of Directory is : {0}", clazzName);
+            }
 
             Type clazz = CommandLineUtil.LoadDirectoryClass(clazzName);
             // If it is a FSDirectory type, try its ctor(File)
-            if (clazz.IsSubclassOf(typeof (FSDirectory)))
+            if (clazz.IsSubclassOf(typeof(FSDirectory)))
             {
                 DirectoryInfo dir = CreateTempDir("index-" + clazzName);
                 dir.Create(); // ensure it's created so we 'have' it.
@@ -1421,7 +1388,7 @@ namespace Lucene.Net.Util
             }
 
             // try empty ctor
-            return (Directory) Activator.CreateInstance(clazz);
+            return (Directory)Activator.CreateInstance(clazz);
         }
 
         /// <summary>
@@ -2641,7 +2608,7 @@ namespace Lucene.Net.Util
         /// A queue of temporary resources to be removed after the
         /// suite completes. </summary>
         /// <seealso cref= #registerToRemoveAfterSuite(File) </seealso>
-        private static List<FileSystemInfo> CleanupQueue = new List<FileSystemInfo>();
+        private static readonly ConcurrentQueue<string> CleanupQueue = new ConcurrentQueue<string>();
 
         /// <summary>
         /// Register temporary folder for removal after the suite completes.
@@ -2656,10 +2623,7 @@ namespace Lucene.Net.Util
                 return;
             }
 
-            lock (CleanupQueue)
-            {
-                CleanupQueue.Add(f);
-            }
+            CleanupQueue.Enqueue(f.FullName);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -2671,59 +2635,46 @@ namespace Lucene.Net.Util
             return string.Format("{0}+{1}", this.GetType().Name, sf.GetMethod().Name);
         }
 
-        /*private static class TemporaryFilesCleanupRule : TestRuleAdapter
+        private void CleanupTemporaryFiles()
         {
-            protected void Before()
+            // Drain cleanup queue and clear it.
+            var tempDirBasePath = (TempDirBase != null ? TempDirBase.FullName : null);
+            TempDirBase = null;
+
+            // Only check and throw an IOException on un-removable files if the test
+            // was successful. Otherwise just report the path of temporary files
+            // and leave them there.
+            if (LuceneTestCase.SuiteFailureMarker /*.WasSuccessful()*/)
             {
-                base.Before();
-                Debug.Assert(TempDirBase == null);
-            }
-
-            protected void AfterAlways(IList<Exception> errors)
-            {
-                // Drain cleanup queue and clear it.
-                DirectoryInfo[] everything;
-                string tempDirBasePath;
-                lock (CleanupQueue)
-                {
-                    tempDirBasePath = (TempDirBase != null ? TempDirBase.FullName : null);
-                    TempDirBase = null;
-
-                    CleanupQueue.Reverse();
-                    everything = new DirectoryInfo[CleanupQueue.Count];
-                    CleanupQueue.ToArray(everything);
-                    CleanupQueue.Clear();
-                }
-
-                // Only check and throw an IOException on un-removable files if the test
-                // was successful. Otherwise just report the path of temporary files
-                // and leave them there.
-                if (LuceneTestCase.SuiteFailureMarker.WasSuccessful())
+                string f;
+                while (CleanupQueue.TryDequeue(out f))
                 {
                     try
                     {
-                        TestUtil.Rm(everything);
+                        if (System.IO.Directory.Exists(f))
+                            System.IO.Directory.Delete(f, true);
+                        else if (System.IO.File.Exists(f))
+                            File.Delete(f);
                     }
                     catch (IOException e)
                     {
-                        Type suiteClass = RandomizedContext.Current.GetTargetType;
-                        if (suiteClass.isAnnotationPresent(typeof(SuppressTempFileChecks)))
-                        {
-                            Console.Error.WriteLine("WARNING: Leftover undeleted temporary files (bugUrl: " + suiteClass.GetAnnotation(typeof(SuppressTempFileChecks)).bugUrl() + "): " + e.Message);
-                            return;
-                        }
-                        throw e;
-                    }
-                }
-                else
-                {
-                    if (tempDirBasePath != null)
-                    {
-                        Console.Error.WriteLine("NOTE: leaving temporary files on disk at: " + tempDirBasePath);
+                        //                    Type suiteClass = RandomizedContext.Current.GetTargetType;
+                        //                    if (suiteClass.IsAnnotationPresent(typeof(SuppressTempFileChecks)))
+                        //                    {
+                        Console.Error.WriteLine("WARNING: Leftover undeleted temporary files " + e.Message);
+                        return;
+                        //                    }
                     }
                 }
             }
-        }*/
+            else
+            {
+                if (tempDirBasePath != null)
+                {
+                    Console.Error.WriteLine("NOTE: leaving temporary files on disk at: " + tempDirBasePath);
+                }
+            }
+        }
     }
 
     /*internal class ReaderClosedListenerAnonymousInnerClassHelper : IndexReader.ReaderClosedListener
@@ -2752,7 +2703,7 @@ namespace Lucene.Net.Util
 
         public virtual int Compare(object arg0, object arg1)
         {
-            return ((IndexableField)arg0).Name().CompareTo(((IndexableField)arg1).Name());
+            return System.String.Compare(((IndexableField)arg0).Name(), ((IndexableField)arg1).Name(), System.StringComparison.Ordinal);
         }
     }
 }

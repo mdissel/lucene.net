@@ -138,7 +138,7 @@ namespace Lucene.Net.Analysis
         {
         }
 
-        public override bool IncrementToken()
+        public sealed override bool IncrementToken()
         {
             //Debug.Assert(!EnableChecks_Renamed || (StreamState == State.RESET || StreamState == State.INCREMENT), "IncrementToken() called while in wrong state: " + StreamState);
             ClearAttributes();
@@ -248,14 +248,14 @@ namespace Lucene.Net.Analysis
                         // read(char[])
                         char[] c = new char[1];
                         int ret = input.Read(c, 0, c.Length);
-                        return ret == 0 ? -1 : c[0];
+                        return ret <= 0 ? -1 : c[0];
                     }
                 case 1:
                     {
                         // read(char[], int, int)
                         char[] c = new char[2];
                         int ret = input.Read(c, 1, 1);
-                        return ret == 0 ? -1 : c[1];
+                        return ret <= 0 ? -1 : c[1];
                     }
                 /* LUCENE TO-DO not sure if needed, CharBuffer not supported
                   case 2:

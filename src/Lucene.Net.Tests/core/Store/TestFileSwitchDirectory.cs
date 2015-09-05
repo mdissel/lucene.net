@@ -1,3 +1,4 @@
+using Lucene.Net.Index;
 using Lucene.Net.Support;
 using NUnit.Framework;
 using System.Collections.Generic;
@@ -112,17 +113,18 @@ namespace Lucene.Net.Store
             DirectoryInfo secondDir = CreateTempDir("bar");
             System.IO.Directory.Delete(primDir.FullName, true);
             System.IO.Directory.Delete(secondDir.FullName, true);
-            Directory dir = NewFSSwitchDirectory(primDir, secondDir, new HashSet<string>());
-            try
+            using (Directory dir = NewFSSwitchDirectory(primDir, secondDir, new HashSet<string>()))
             {
-                DirectoryReader.Open(dir);
-                Assert.Fail("did not hit expected exception");
+                try
+                {
+                    DirectoryReader.Open(dir);
+                    Assert.Fail("did not hit expected exception");
+                }
+                catch (NoSuchDirectoryException)
+                {
+                    // expected
+                }
             }
-            catch (NoSuchDirectoryException nsde)
-            {
-                // expected
-            }
-            dir.Dispose();
         }
 
         // LUCENE-3380 test that we can add a file, and then when we call list() we get it back
@@ -147,8 +149,8 @@ namespace Lucene.Net.Store
         [Test]
         public virtual void TestCompoundFileAppendTwice()
         {
-            Directory newDir = NewFSSwitchDirectory(CollectionsHelper.Singleton("cfs"));
-            CompoundFileDirectory csw = new CompoundFileDirectory(newDir, "d.cfs", NewIOContext(Random()), true);
+            Directory newDir = NewFSSwitchDirectory(Collections.Singleton("cfs"));
+            var csw = new CompoundFileDirectory(newDir, "d.cfs", NewIOContext(Random()), true);
             CreateSequenceFile(newDir, "d1", (sbyte)0, 15);
             IndexOutput @out = csw.CreateOutput("d.xyz", NewIOContext(Random()));
             @out.WriteInt(0);
@@ -175,7 +177,7 @@ namespace Lucene.Net.Store
             IndexOutput os = dir.CreateOutput(name, NewIOContext(Random()));
             for (int i = 0; i < size; i++)
             {
-                os.WriteByte(start);
+                os.WriteByte((byte)start);
                 start++;
             }
             os.Dispose();

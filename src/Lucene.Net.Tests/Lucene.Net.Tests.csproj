@@ -56,6 +56,7 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Management" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.ServiceModel" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
@@ -65,9 +66,17 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Lucene.Net.Facet\Lucene.Net.Facet.csproj">
+      <Project>{48f7884a-9454-4e88-8413-9d35992cb440}</Project>
+      <Name>Lucene.Net.Facet</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Lucene.Net.Core\Lucene.Net.csproj">
       <Project>{5d4ad9be-1ffb-41ab-9943-25737971bf57}</Project>
       <Name>Lucene.Net</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Lucene.Net.Queries\Lucene.Net.Queries.csproj">
+      <Project>{69d7956c-c2cc-4708-b399-a188fec384c4}</Project>
+      <Name>Lucene.Net.Queries</Name>
     </ProjectReference>
     <ProjectReference Include="..\Lucene.Net.TestFramework\Lucene.Net.TestFramework.csproj">
       <Project>{b2c0d749-ce34-4f62-a15e-00cb2ff5ddb3}</Project>
@@ -599,6 +608,9 @@
   <ItemGroup>
     <Folder Include="core\Util\Cache\" />
     <Folder Include="core\Util\Junitcompat\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
   <ProjectExtensions>

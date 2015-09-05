@@ -1,4 +1,5 @@
 using Lucene.Net.Documents;
+using Lucene.Net.Support;
 using Lucene.Net.Util;
 using System;
 using System.Collections;
@@ -122,11 +123,11 @@ namespace Lucene.Net.Search
                 BitArray bitset = new BitArray(5);
                 if (acceptDocs.Get(1))
                 {
-                    bitset.Set(1, true);
+                    bitset.SafeSet(1, true);
                 }
                 if (acceptDocs.Get(3))
                 {
-                    bitset.Set(3, true);
+                    bitset.SafeSet(3, true);
                 }
                 return new DocIdBitSet(bitset);
             }
@@ -526,7 +527,7 @@ namespace Lucene.Net.Search
                 int d;
                 while ((d = termDocsEnum.NextDoc()) != DocsEnum.NO_MORE_DOCS)
                 {
-                    bitSet.Set(d, true);
+                    bitSet.SafeSet(d, true);
                 }
                 return new DocIdSetAnonymousInnerClassHelper(this, nullBitset, reader, bitSet);
             }
@@ -567,8 +568,8 @@ namespace Lucene.Net.Search
 
                     public bool Get(int index)
                     {
-                        Assert.IsTrue(OuterInstance.BitSet.Get(index), "filter was called for a non-matching doc");
-                        return OuterInstance.BitSet.Get(index);
+                        Assert.IsTrue(OuterInstance.BitSet.SafeGet(index), "filter was called for a non-matching doc");
+                        return OuterInstance.BitSet.SafeGet(index);
                     }
 
                     public int Length()

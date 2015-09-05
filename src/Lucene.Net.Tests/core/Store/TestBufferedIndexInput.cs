@@ -145,7 +145,7 @@ namespace Lucene.Net.Store
             }
         }
 
-        private sbyte[] Buffer = new sbyte[10];
+        private byte[] Buffer = new byte[10];
 
         private void CheckReadBytes(IndexInput input, int size, int pos)
         {
@@ -268,74 +268,72 @@ namespace Lucene.Net.Store
         [Test]
         public virtual void TestSetBufferSize()
         {
-            //File indexDir = CreateTempDir("testSetBufferSize");
-            var indexDir = new DirectoryInfo(Path.Combine(AppSettings.Get("tempDir", ""), "testSetBufferSize"));
+            var indexDir = CreateTempDir("testSetBufferSize");
+            var dir = new MockFSDirectory(indexDir, Random());
             try
             {
-                using (MockFSDirectory dir = new MockFSDirectory(indexDir, Random()))
+                var writer = new IndexWriter(
+                    dir,
+                    new IndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random()))
+                        .SetOpenMode(IndexWriterConfig.OpenMode_e.CREATE)
+                        .SetMergePolicy(NewLogMergePolicy(false)));
+                    
+                for (int i = 0; i < 37; i++)
                 {
-                    using (IndexWriter writer = new IndexWriter(dir,
-                        (new IndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random()))).SetOpenMode(
-                            IndexWriterConfig.OpenMode_e.CREATE).SetMergePolicy(NewLogMergePolicy(false))))
-                    {
-                        for (int i = 0; i < 37; i++)
-                        {
-                            var doc = new Document();
-                            doc.Add(NewTextField("content", "aaa bbb ccc ddd" + i, Field.Store.YES));
-                            doc.Add(NewTextField("id", "" + i, Field.Store.YES));
-                            writer.AddDocument(doc);
-                        }
-
-                        dir.AllIndexInputs.Clear();
-                        dir.TweakBufferSizes();
-                        writer.DeleteDocuments(new Term("id", "0"));
-
-                        var aaa = new Term("content", "aaa");
-                        var bbb = new Term("content", "bbb");
-                        
-                        IndexSearcher searcher;
-                        ScoreDoc[] hits;
-                        using (var reader = DirectoryReader.Open(writer, true))
-                        {
-                            searcher = NewSearcher(reader);
-                            hits = searcher.Search(new TermQuery(bbb), null, 1000).ScoreDocs;
-                            dir.TweakBufferSizes();
-                            Assert.AreEqual(36, hits.Length);
-                        }
-
-                        dir.TweakBufferSizes();
-                        writer.DeleteDocuments(new Term("id", "4"));
-                        using (var reader = DirectoryReader.Open(writer, true))
-                        {
-                            searcher = NewSearcher(reader);
-
-                            hits = searcher.Search(new TermQuery(bbb), null, 1000).ScoreDocs;
-                            dir.TweakBufferSizes();
-                            Assert.AreEqual(35, hits.Length);
-                            dir.TweakBufferSizes();
-                            hits = searcher.Search(new TermQuery(new Term("id", "33")), null, 1000).ScoreDocs;
-                            dir.TweakBufferSizes();
-                            Assert.AreEqual(1, hits.Length);
-                            hits = searcher.Search(new TermQuery(aaa), null, 1000).ScoreDocs;
-                            dir.TweakBufferSizes();
-                            Assert.AreEqual(35, hits.Length);
-                        }
-                    }
+                    var doc = new Document();
+                    doc.Add(NewTextField("content", "aaa bbb ccc ddd" + i, Field.Store.YES));
+                    doc.Add(NewTextField("id", "" + i, Field.Store.YES));
+                    writer.AddDocument(doc);
                 }
+
+                dir.AllIndexInputs.Clear();
+
+                IndexReader reader = DirectoryReader.Open(writer, true);
+                var aaa = new Term("content", "aaa");
+                var bbb = new Term("content", "bbb");
+                reader.Dispose();
+
+                dir.TweakBufferSizes();
+                writer.DeleteDocuments(new Term("id", "0"));
+                reader = DirectoryReader.Open(writer, true);
+                var searcher = NewSearcher(reader);
+                var hits = searcher.Search(new TermQuery(bbb), null, 1000).ScoreDocs;
+                dir.TweakBufferSizes();
+                Assert.AreEqual(36, hits.Length);
+
+                reader.Dispose();
+
+                dir.TweakBufferSizes();
+                writer.DeleteDocuments(new Term("id", "4"));
+                reader = DirectoryReader.Open(writer, true);
+                searcher = NewSearcher(reader);
+
+                hits = searcher.Search(new TermQuery(bbb), null, 1000).ScoreDocs;
+                dir.TweakBufferSizes();
+                Assert.AreEqual(35, hits.Length);
+                dir.TweakBufferSizes();
+                hits = searcher.Search(new TermQuery(new Term("id", "33")), null, 1000).ScoreDocs;
+                dir.TweakBufferSizes();
+                Assert.AreEqual(1, hits.Length);
+                hits = searcher.Search(new TermQuery(aaa), null, 1000).ScoreDocs;
+                dir.TweakBufferSizes();
+                Assert.AreEqual(35, hits.Length);
+                writer.Dispose();
+                reader.Dispose();
             }
             finally
             {
-                System.IO.Directory.Delete(indexDir.FullName, true);
+                indexDir.Delete(true);
             }
         }
 
         private class MockFSDirectory : BaseDirectory
         {
-            internal IList<IndexInput> AllIndexInputs = new List<IndexInput>();
+            internal readonly IList<IndexInput> AllIndexInputs = new List<IndexInput>();
 
-            internal Random Rand;
+            private Random Rand;
 
-            internal Directory Dir;
+            private Directory Dir;
 
             public MockFSDirectory(DirectoryInfo path, Random rand)
             {

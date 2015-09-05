@@ -21,8 +21,6 @@ namespace Lucene.Net.Store
          * limitations under the License.
          */
 
-    using ThreadInterruptedException = Lucene.Net.Util.ThreadInterruptedException;
-
     /// <summary>
     /// Abstract base class to rate limit IO.  Typically implementations are
     ///  shared across multiple IndexInputs or IndexOutputs (for example
@@ -52,7 +50,7 @@ namespace Lucene.Net.Store
         /// </summary>
         public class SimpleRateLimiter : RateLimiter
         {
-            internal double MbPerSec_Renamed;
+            internal double mbPerSec;
             internal double NsPerByte;
             internal long LastNS;
 
@@ -74,12 +72,15 @@ namespace Lucene.Net.Store
             {
                 set
                 {
-                    this.MbPerSec_Renamed = value;
-                    NsPerByte = 1000000000.0 / (1024 * 1024 * value);
+                    this.mbPerSec = value;
+                    if (value == 0)
+                        NsPerByte = 0;
+                    else
+                        NsPerByte = 1000000000.0 / (1024 * 1024 * value);
                 }
                 get
                 {
-                    return this.MbPerSec_Renamed;
+                    return this.mbPerSec;
                 }
             }
 
@@ -102,9 +103,9 @@ namespace Lucene.Net.Store
 
                 // TODO: this is purely instantaneous rate; maybe we
                 // should also offer decayed recent history one?
-                long targetNS = LastNS = LastNS + ((long)(bytes * NsPerByte));
+                var targetNS = LastNS = LastNS + ((long)(bytes * NsPerByte));
                 long startNS;
-                long curNS = startNS = DateTime.UtcNow.Ticks * 100 /* ns */;
+                var curNS = startNS = DateTime.UtcNow.Ticks * 100 /* ns */;
                 if (LastNS < curNS)
                 {
                     LastNS = curNS;
@@ -114,7 +115,7 @@ namespace Lucene.Net.Store
                 // enough:
                 while (true)
                 {
-                    long pauseNS = targetNS - curNS;
+                    var pauseNS = targetNS - curNS;
                     if (pauseNS > 0)
                     {
                         try
@@ -123,7 +124,7 @@ namespace Lucene.Net.Store
                         }
                         catch (ThreadInterruptedException ie)
                         {
-                            throw new ThreadInterruptedException(ie);
+                            throw new ThreadInterruptedException("Thread Interrupted Exception", ie);
                         }
                         curNS = DateTime.UtcNow.Ticks * 100;
                         continue;

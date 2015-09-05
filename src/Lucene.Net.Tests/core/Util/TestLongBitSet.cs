@@ -31,9 +31,9 @@ namespace Lucene.Net.Util
             long max = b.Length();
             for (int i = 0; i < max; i++)
             {
-                if (a.Get(i) != b.Get(i))
+                if (a.SafeGet(i) != b.Get(i))
                 {
-                    Assert.Fail("mismatch: BitSet=[" + i + "]=" + a.Get(i));
+                    Assert.Fail("mismatch: BitSet=[" + i + "]=" + a.SafeGet(i));
                 }
             }
         }
@@ -110,7 +110,7 @@ namespace Lucene.Net.Util
                         b.Clear(idx);
 
                         idx = Random().Next(sz);
-                        a.SafeSet(idx, !a.Get(idx));
+                        a.SafeSet(idx, !a.SafeGet(idx));
                         b.Flip(idx, idx + 1);
 
                         idx = Random().Next(sz);
@@ -169,11 +169,11 @@ namespace Lucene.Net.Util
                     Assert.AreEqual(a.Cardinality(), b.Cardinality());
 
                     BitArray a_and = (BitArray)a.Clone();
-                    a_and = a_and.And(a0);
+                    a_and = a_and.And_UnequalLengths(a0);
                     BitArray a_or = (BitArray)a.Clone();
-                    a_or = a_or.Or(a0);
+                    a_or = a_or.Or_UnequalLengths(a0);
                     BitArray a_xor = (BitArray)a.Clone();
-                    a_xor = a_xor.Xor(a0);
+                    a_xor = a_xor.Xor_UnequalLengths(a0);
                     BitArray a_andn = (BitArray)a.Clone();
                     a_andn.AndNot(a0);
 
@@ -208,6 +208,64 @@ namespace Lucene.Net.Util
         {
             DoRandomSets(AtLeast(1200), AtLeast(1000), 1);
             DoRandomSets(AtLeast(1200), AtLeast(1000), 2);
+        }
+
+        [Test]
+        public void TestClearSmall()
+        {
+            LongBitSet a = new LongBitSet(30);   // 0110010111001000101101001001110...0
+            int[] onesA = { 1, 2, 5, 7, 8, 9, 12, 16, 18, 19, 21, 24, 27, 28, 29 };
+
+            for (int i = 0; i < onesA.size(); i++)
+            {
+                a.Set(onesA[i]);
+            }
+
+            LongBitSet b = new LongBitSet(30);   // 0110000001001000101101001001110...0
+            int[] onesB = { 1, 2, 9, 12, 16, 18, 19, 21, 24, 27, 28, 29 };
+
+            for (int i = 0; i < onesB.size(); i++)
+            {
+                b.Set(onesB[i]);
+            }
+
+            a.Clear(5, 9);
+            Assert.True(a.Equals(b));
+
+            a.Clear(9, 10);
+            Assert.False(a.Equals(b));
+
+            a.Set(9);
+            Assert.True(a.Equals(b));
+        }
+
+        [Test]
+        public void TestClearLarge()
+        {
+            int iters = AtLeast(1000);
+            for (int it = 0; it < iters; it++)
+            {
+                Random random = new Random();
+                int sz = AtLeast(1200);
+                LongBitSet a = new LongBitSet(sz);
+                LongBitSet b = new LongBitSet(sz);
+                int from = random.Next(sz - 1);
+                int to = random.Next(from, sz);
+
+                for (int i = 0; i < sz / 2; i++)
+                {
+                    int index = random.Next(sz - 1);
+                    a.Set(index);
+
+                    if (index < from || index >= to)
+                    {
+                        b.Set(index);
+                    }
+                }
+
+                a.Clear(from, to);
+                Assert.True(a.Equals(b));
+            }
         }
 
         // uncomment to run a bigger test (~2 minutes).

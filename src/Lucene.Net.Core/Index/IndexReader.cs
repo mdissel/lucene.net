@@ -78,7 +78,7 @@ namespace Lucene.Net.Index
         private bool ClosedByChild = false;
         private readonly AtomicInteger refCount = new AtomicInteger(1);
 
-        internal IndexReader()
+        protected IndexReader()
         {
             if (!(this is CompositeReader || this is AtomicReader))
             {
@@ -148,21 +148,24 @@ namespace Lucene.Net.Index
             {
                 foreach (ReaderClosedListener listener in ReaderClosedListeners)
                 {
-                    /*try
-                    {*/
-                    listener.OnClose(this);
-                    /*}
+                    try
+                    {
+                        listener.OnClose(this);
+                    }
                     catch (Exception t)
                     {
-                      if (th == null)
-                      {
-                        th = t;
-                      }
-                      else
-                      {
-                        th.AddSuppressed(t);
-                      }
-                    }*/
+                        if (th == null)
+                        {
+                            th = t;
+                        }
+                        else
+                        {
+                            //th.AddSuppressed(t);
+                            // LUCENENET TODO - Figure out how to track these exceptions
+                            // Drop the exception instead of wrapping in AggregateException.
+                            // Wrapping will change the exception type and change flow control.
+                        }
+                    }
                 }
                 IOUtils.ReThrowUnchecked(th);
             }
@@ -328,7 +331,7 @@ namespace Lucene.Net.Index
         /// <summary>
         /// {@inheritDoc}
         /// <p>For caching purposes, {@code IndexReader} subclasses are not allowed
-        /// to implement equals/hashCode, so methods are declared final.
+        /// to implement equals/hashCode, so methods are declared sealed.
         /// To lookup instances from caches use <seealso cref="#getCoreCacheKey"/> and
         /// <seealso cref="#getCombinedCoreAndDeletesKey"/>.
         /// </summary>
@@ -514,7 +517,7 @@ namespace Lucene.Net.Index
         // IndexableField
         public Document Document(int docID)
         {
-            DocumentStoredFieldVisitor visitor = new DocumentStoredFieldVisitor();
+            var visitor = new DocumentStoredFieldVisitor();
             Document(docID, visitor);
             return visitor.Document;
         }
@@ -526,7 +529,7 @@ namespace Lucene.Net.Index
         /// </summary>
         public Document Document(int docID, ISet<string> fieldsToLoad)
         {
-            DocumentStoredFieldVisitor visitor = new DocumentStoredFieldVisitor(fieldsToLoad);
+            var visitor = new DocumentStoredFieldVisitor(fieldsToLoad);
             Document(docID, visitor);
             return visitor.Document;
         }

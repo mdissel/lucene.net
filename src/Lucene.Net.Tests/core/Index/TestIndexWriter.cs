@@ -75,13 +75,13 @@ namespace Lucene.Net.Index
     using TermQuery = Lucene.Net.Search.TermQuery;
     using TestUtil = Lucene.Net.Util.TestUtil;
     using TextField = TextField;
-    using ThreadInterruptedException = Lucene.Net.Util.ThreadInterruptedException;
 
     [TestFixture]
     public class TestIndexWriter : LuceneTestCase
     {
         private static readonly FieldType StoredTextType = new FieldType(TextField.TYPE_NOT_STORED);
 
+        [Test]
         public virtual void TestDocCount()
         {
             Directory dir = NewDirectory();
@@ -1025,7 +1025,7 @@ namespace Lucene.Net.Index
             internal readonly IEnumerator<string> terms;
             internal bool first;
 
-            public override bool IncrementToken()
+            public sealed override bool IncrementToken()
             {
                 if (!terms.MoveNext())
                 {
@@ -1430,7 +1430,8 @@ namespace Lucene.Net.Index
             // up front... else we can see a false failure if 2nd
             // interrupt arrives while class loader is trying to
             // init this class (in servicing a first interrupt):
-            Assert.IsTrue((new ThreadInterruptedException(new Exception("Thread interrupted"))).InnerException is ThreadInterruptedException);
+            // C# does not have the late load problem.
+            //Assert.IsTrue((new ThreadInterruptedException(new Exception("Thread interrupted"))).InnerException is ThreadInterruptedException);
 
             // issue 300 interrupts to child thread
             int numInterrupts = AtLeast(300);
@@ -1874,13 +1875,14 @@ namespace Lucene.Net.Index
 
         private class StringSplitTokenizer : Tokenizer
         {
-            internal string[] Tokens;
-            internal int Upto;
-            internal readonly CharTermAttribute TermAtt;// = AddAttribute<CharTermAttribute>();
+            private string[] Tokens;
+            private int Upto;
+            private readonly ICharTermAttribute TermAtt;
 
             public StringSplitTokenizer(TextReader r)
                 : base(r)
             {
+                TermAtt = AddAttribute<ICharTermAttribute>();
                 try
                 {
                     Reader = r;
@@ -1891,7 +1893,7 @@ namespace Lucene.Net.Index
                 }
             }
 
-            public override bool IncrementToken()
+            public sealed override bool IncrementToken()
             {
                 ClearAttributes();
                 if (Upto < Tokens.Length)
@@ -2249,14 +2251,14 @@ namespace Lucene.Net.Index
         public virtual void TestOtherFiles()
         {
             Directory dir = NewDirectory();
-            IndexWriter iw = new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random())));
+            var iw = new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random())));
             iw.AddDocument(new Document());
             iw.Dispose();
             try
             {
                 // Create my own random file:
                 IndexOutput @out = dir.CreateOutput("myrandomfile", NewIOContext(Random()));
-                @out.WriteByte((sbyte)42);
+                @out.WriteByte((byte)(sbyte)42);
                 @out.Dispose();
 
                 (new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random())))).Dispose();
@@ -2366,7 +2368,7 @@ namespace Lucene.Net.Index
             {
                 // Create my own random file:
                 IndexOutput @out = dir.CreateOutput("_a.frq", NewIOContext(Random()));
-                @out.WriteByte((sbyte)42);
+                @out.WriteByte((byte)(sbyte)42);
                 @out.Dispose();
 
                 (new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random())))).Dispose();

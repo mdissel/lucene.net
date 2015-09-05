@@ -133,15 +133,14 @@ namespace Lucene.Net.Index
 
         private IEnumerable<BytesRef> GetBytesRefEnumberable(int valueCount, int[] sortedValues)
         {
-            BytesRef scratch = new BytesRef();
-
             for (int i = 0; i < valueCount; ++i)
             {
+                var scratch = new BytesRef();
                 yield return Hash.Get(sortedValues[i], scratch);
             }
         }
 
-        private IEnumerable<long> GetOrdsEnumberable(int maxDoc, int[] ordMap)
+        private IEnumerable<long?> GetOrdsEnumberable(int maxDoc, int[] ordMap)
         {
             AppendingDeltaPackedLongBuffer.Iterator iter = Pending.GetIterator();
 

@@ -1,3 +1,4 @@
+using System.Threading;
 using Lucene.Net.Support;
 using System;
 using System.Diagnostics;
@@ -76,36 +77,28 @@ namespace Lucene.Net.Store
         public override IndexInput OpenInput(string name, IOContext context)
         {
             EnsureOpen();
-            //File path = new File(Directory, name);
-            FileInfo path = new FileInfo(Path.Combine(Directory.FullName, name));
-            //path.Create();
-            FileStream fc = new FileStream(path.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);//FileChannel.open(path.toPath(), StandardOpenOption.READ);
+            var path = new FileInfo(Path.Combine(Directory.FullName, name));
+            var fc = new FileStream(path.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             return new NIOFSIndexInput("NIOFSIndexInput(path=\"" + path + "\")", fc, context);
-            //return new NIOFSIndexInput(new FileInfo(Path.Combine(Directory.FullName, name)), context, ReadChunkSize);
         }
 
         public override IndexInputSlicer CreateSlicer(string name, IOContext context)
         {
             EnsureOpen();
-            //File path = new File(Directory, name);
-            //FileStream descriptor = FileChannel.open(path.toPath(), StandardOpenOption.READ);
-            FileInfo path = new FileInfo(Path.Combine(Directory.FullName, name));
-            FileStream fc = new FileStream(path.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var path = new FileInfo(Path.Combine(Directory.FullName, name));
+            var fc = new FileStream(path.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             return new IndexInputSlicerAnonymousInnerClassHelper(this, context, path, fc);
         }
 
-        private class IndexInputSlicerAnonymousInnerClassHelper : Directory.IndexInputSlicer
+        private class IndexInputSlicerAnonymousInnerClassHelper : IndexInputSlicer
         {
-            private readonly NIOFSDirectory OuterInstance;
+            private readonly IOContext Context;
+            private readonly FileInfo Path;
+            private readonly FileStream Descriptor;
 
-            private Lucene.Net.Store.IOContext Context;
-            private FileInfo Path;
-            private FileStream Descriptor;
-
-            public IndexInputSlicerAnonymousInnerClassHelper(NIOFSDirectory outerInstance, Lucene.Net.Store.IOContext context, FileInfo path, FileStream descriptor)
+            public IndexInputSlicerAnonymousInnerClassHelper(NIOFSDirectory outerInstance, IOContext context, FileInfo path, FileStream descriptor)
                 : base(outerInstance)
             {
-                this.OuterInstance = outerInstance;
                 this.Context = context;
                 this.Path = path;
                 this.Descriptor = descriptor;
@@ -130,7 +123,7 @@ namespace Lucene.Net.Store
                 {
                     return OpenSlice("full-slice", 0, Descriptor.Length);
                 }
-                catch (System.IO.IOException ex)
+                catch (IOException ex)
                 {
                     throw new Exception(ex.Message, ex);
                 }

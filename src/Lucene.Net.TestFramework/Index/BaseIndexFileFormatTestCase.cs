@@ -35,7 +35,7 @@ namespace Lucene.Net.Index
     {
         /// <summary>
         /// Returns the codec to run tests against </summary>
-        protected internal abstract Codec Codec { get; }
+        protected abstract Codec Codec { get; }
 
         private Codec SavedCodec;
 
@@ -64,13 +64,13 @@ namespace Lucene.Net.Index
             IDictionary<string, long> bytesUsedByExtension = new Dictionary<string, long>();
             foreach (string file in d.ListAll())
             {
-								string ext = IndexFileNames.GetExtension(file) ?? string.Empty;
+				string ext = IndexFileNames.GetExtension(file) ?? string.Empty;
                 long previousLength = bytesUsedByExtension.ContainsKey(ext) ? bytesUsedByExtension[ext] : 0;
                 bytesUsedByExtension[ext] = previousLength + d.FileLength(file);
             }
-						foreach (string item in ExcludedExtensionsFromByteCounts()) {
-							bytesUsedByExtension.Remove(item);							
-						}
+			foreach (string item in ExcludedExtensionsFromByteCounts()) {
+				bytesUsedByExtension.Remove(item);							
+			}
             return bytesUsedByExtension;
         }
 
@@ -97,30 +97,33 @@ namespace Lucene.Net.Index
             // do not use newMergePolicy that might return a MockMergePolicy that ignores the no-CFS ratio
             MergePolicy mp = NewTieredMergePolicy();
             mp.NoCFSRatio = 0;
-            IndexWriterConfig cfg = (new IndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random()))).SetUseCompoundFile(false).SetMergePolicy(mp);
-            RandomIndexWriter w = new RandomIndexWriter(Random(), dir, cfg);
-            int numDocs = AtLeast(500);
-            for (int i = 0; i < numDocs; ++i)
+            var cfg = (new IndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random()))).SetUseCompoundFile(false).SetMergePolicy(mp);
+            using (var w = new RandomIndexWriter(Random(), dir, cfg))
             {
-                Document d = new Document();
-                AddRandomFields(d);
-                w.AddDocument(d);
+                var numDocs = AtLeast(500);
+                for (var i = 0; i < numDocs; ++i)
+                {
+                    var d = new Document();
+                    AddRandomFields(d);
+                    w.AddDocument(d);
+                }
+                w.ForceMerge(1);
+                w.Commit();
             }
-            w.ForceMerge(1);
-            w.Commit();
-            w.Dispose();
             IndexReader reader = DirectoryReader.Open(dir);
 
             Directory dir2 = NewDirectory();
             mp = NewTieredMergePolicy();
             mp.NoCFSRatio = 0;
             cfg = (new IndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random()))).SetUseCompoundFile(false).SetMergePolicy(mp);
-            w = new RandomIndexWriter(Random(), dir2, cfg);
-            w.AddIndexes(reader);
-            w.Commit();
-            w.Dispose();
 
-            Assert.AreEqual(BytesUsedByExtension(dir), BytesUsedByExtension(dir2));
+            using (var w = new RandomIndexWriter(Random(), dir2, cfg))
+            {
+                w.AddIndexes(reader);
+                w.Commit();
+            }
+
+            assertEquals(BytesUsedByExtension(dir), BytesUsedByExtension(dir2));
 
             reader.Dispose();
             dir.Dispose();

@@ -161,6 +161,8 @@ namespace Lucene.Net.Index
 
         private class IndexerThread : ThreadClass
         {
+            private DateTime unixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
             private readonly TestIndexWriterExceptions OuterInstance;
 
             internal IndexWriter Writer;
@@ -203,7 +205,7 @@ namespace Lucene.Net.Index
                 Field idField = NewField(r, "id", "", DocCopyIterator.Custom2);
                 doc.Add(idField);
 
-                long stopTime = DateTime.Now.Millisecond + 500;
+                long stopTime = ((long)(DateTime.UtcNow - unixEpoch).TotalMilliseconds) + 500;
 
                 do
                 {
@@ -226,7 +228,7 @@ namespace Lucene.Net.Index
                             Writer.UpdateDocument(idTerm, doc);
                         }
                     }
-                    catch (CorruptIndexException re)
+                    catch (TestPoint1Exception re)
                     {
                         if (VERBOSE)
                         {
@@ -269,7 +271,7 @@ namespace Lucene.Net.Index
                         Failure = t;
                         break;
                     }
-                } while (DateTime.Now.Millisecond < stopTime);
+                } while (((long)(DateTime.UtcNow - unixEpoch).TotalMilliseconds) < stopTime);
             }
         }
 
@@ -295,8 +297,15 @@ namespace Lucene.Net.Index
                         Console.WriteLine(Thread.CurrentThread.Name + ": NOW FAIL: " + name);
                         Console.WriteLine((new Exception()).StackTrace);
                     }
-                    throw new Exception(Thread.CurrentThread.Name + ": intentionally failing at " + name);
+                    throw new TestPoint1Exception(Thread.CurrentThread.Name + ": intentionally failing at " + name);
                 }
+            }
+        }
+
+        private class TestPoint1Exception : ApplicationException
+        {
+            public TestPoint1Exception(string message) : base(message)
+            {
             }
         }
 
@@ -442,7 +451,7 @@ namespace Lucene.Net.Index
                 this.FieldName = fieldName;
             }
 
-            public override bool IncrementToken()
+            public sealed override bool IncrementToken()
             {
                 if (this.FieldName.Equals("crash") && Count++ >= 4)
                 {
@@ -614,7 +623,7 @@ namespace Lucene.Net.Index
 
             // Make sure the doc that hit the exception was marked
             // as deleted:
-            DocsEnum tdocs = TestUtil.Docs(Random(), reader, t.Field(), new BytesRef(t.Text()), MultiFields.GetLiveDocs(reader), null, 0);
+            DocsEnum tdocs = TestUtil.Docs(Random(), reader, t.Field, new BytesRef(t.Text()), MultiFields.GetLiveDocs(reader), null, 0);
 
             int count = 0;
             while (tdocs.NextDoc() != DocIdSetIterator.NO_MORE_DOCS)
@@ -657,7 +666,7 @@ namespace Lucene.Net.Index
 
                 private int count;
 
-                public override bool IncrementToken()
+                public sealed override bool IncrementToken()
                 {
                     if (count++ == 5)
                     {
@@ -703,7 +712,7 @@ namespace Lucene.Net.Index
                         {
                             break;
                         }
-                        if (typeof(FreqProxTermsWriterPerField).Name.Equals(frame.GetType().Name) && "Flush".Equals(method.Name))
+                        if (typeof(FreqProxTermsWriterPerField).Name.Equals(method.DeclaringType.Name) && "Flush".Equals(method.Name))
                         {
                             sawAppend = true;
                         }
@@ -1053,7 +1062,7 @@ namespace Lucene.Net.Index
                     foreach (var frame in trace.GetFrames())
                     {
                         var method = frame.GetMethod();
-                        if (DoFail && typeof(MockDirectoryWrapper).Name.Equals(frame.GetType().Name) && "Sync".Equals(method.Name))
+                        if (DoFail && typeof(MockDirectoryWrapper).Name.Equals(method.DeclaringType.Name) && "Sync".Equals(method.Name))
                         {
                             DidFail = true;
                             if (VERBOSE)
@@ -1118,8 +1127,8 @@ namespace Lucene.Net.Index
         {
             internal bool FailOnCommit, FailOnDeleteFile;
             internal readonly bool DontFailDuringGlobalFieldMap;
-            internal const string PREPARE_STAGE = "prepareCommit";
-            internal const string FINISH_STAGE = "finishCommit";
+            internal const string PREPARE_STAGE = "PrepareCommit";
+            internal const string FINISH_STAGE = "FinishCommit";
             internal readonly string Stage;
 
             public FailOnlyInCommit(bool dontFailDuringGlobalFieldMap, string stage)
@@ -1130,7 +1139,7 @@ namespace Lucene.Net.Index
 
             public override void Eval(MockDirectoryWrapper dir)
             {
-                var trace = new StackTrace(new Exception());
+                var trace = new StackTrace();
                 bool isCommit = false;
                 bool isDelete = false;
                 bool isInGlobalFieldMap = false;
@@ -1141,15 +1150,16 @@ namespace Lucene.Net.Index
                     {
                         break;
                     }
-                    if (typeof(SegmentInfos).Name.Equals(frame.GetType().Name) && Stage.Equals(method.Name))
+
+                    if (typeof(SegmentInfos).Name.Equals(method.DeclaringType.Name) && Stage.Equals(method.Name))
                     {
                         isCommit = true;
                     }
-                    if (typeof(MockDirectoryWrapper).Name.Equals(frame.GetType().Name) && "DeleteFile".Equals(method.Name))
+                    if (typeof(MockDirectoryWrapper).Name.Equals(method.DeclaringType.Name) && "DeleteFile".Equals(method.Name))
                     {
                         isDelete = true;
                     }
-                    if (typeof(SegmentInfos).Name.Equals(frame.GetType().Name) && "WriteGlobalFieldMap".Equals(method.Name))
+                    if (typeof(SegmentInfos).Name.Equals(method.DeclaringType.Name) && "WriteGlobalFieldMap".Equals(method.Name))
                     {
                         isInGlobalFieldMap = true;
                     }
@@ -1371,7 +1381,7 @@ namespace Lucene.Net.Index
             IndexOutput @out = dir.CreateOutput(IndexFileNames.FileNameFromGeneration(IndexFileNames.SEGMENTS, "", 1 + gen), NewIOContext(Random()));
             @out.CopyBytes(@in, @in.Length() - 1);
             byte b = @in.ReadByte();
-            @out.WriteByte((sbyte)(1 + b));
+            @out.WriteByte((byte)(sbyte)(1 + b));
             @out.Dispose();
             @in.Dispose();
 
@@ -1658,8 +1668,8 @@ namespace Lucene.Net.Index
 
         private class FailOnTermVectors : MockDirectoryWrapper.Failure
         {
-            internal const string INIT_STAGE = "initTermVectorsWriter";
-            internal const string AFTER_INIT_STAGE = "finishDocument";
+            internal const string INIT_STAGE = "InitTermVectorsWriter";
+            internal const string AFTER_INIT_STAGE = "FinishDocument";
             internal const string EXC_MSG = "FOTV";
             internal readonly string Stage;
 
@@ -1675,7 +1685,7 @@ namespace Lucene.Net.Index
                 foreach (var frame in trace.GetFrames())
                 {
                     var method = frame.GetMethod();
-                    if (typeof(TermVectorsConsumer).Name.Equals(frame.GetType().Name) && Stage.Equals(method.Name))
+                    if (typeof(TermVectorsConsumer).Name.Equals(method.DeclaringType.Name) && Stage.Equals(method.Name))
                     {
                         fail = true;
                         break;
@@ -2126,7 +2136,7 @@ namespace Lucene.Net.Index
 
             MockDirectoryWrapper dir = NewMockDirectory();
             AtomicBoolean shouldFail = new AtomicBoolean();
-            dir.FailOn(new FailureAnonymousInnerClassHelper2(this, dir, shouldFail));
+            dir.FailOn(new FailureAnonymousInnerClassHelper2(shouldFail));
 
             RandomIndexWriter w = null;
 
@@ -2159,7 +2169,7 @@ namespace Lucene.Net.Index
                 for (int i = 0; i < numDocs; i++)
                 {
                     Document doc = new Document();
-                    doc.Add(new StringField("id", "" + docBase + i, Field.Store.NO));
+                    doc.Add(new StringField("id", (docBase + i).ToString(), Field.Store.NO));
                     if (DefaultCodecSupportsDocValues())
                     {
                         doc.Add(new NumericDocValuesField("f", 1L));
@@ -2355,21 +2365,21 @@ namespace Lucene.Net.Index
 
         private class FailureAnonymousInnerClassHelper2 : MockDirectoryWrapper.Failure
         {
-            private readonly TestIndexWriterExceptions OuterInstance;
-
-            private MockDirectoryWrapper Dir;
             private AtomicBoolean ShouldFail;
 
-            public FailureAnonymousInnerClassHelper2(TestIndexWriterExceptions outerInstance, MockDirectoryWrapper dir, AtomicBoolean shouldFail)
+            public FailureAnonymousInnerClassHelper2(AtomicBoolean shouldFail)
             {
-                this.OuterInstance = outerInstance;
-                this.Dir = dir;
                 this.ShouldFail = shouldFail;
             }
 
             public override void Eval(MockDirectoryWrapper dir)
             {
                 var trace = new StackTrace();
+                if (ShouldFail.Get() == false)
+                {
+                    return;
+                }
+
                 bool sawSeal = false;
                 bool sawWrite = false;
                 foreach (var frame in trace.GetFrames())

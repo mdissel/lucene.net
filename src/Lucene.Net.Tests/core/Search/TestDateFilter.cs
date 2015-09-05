@@ -47,7 +47,7 @@ namespace Lucene.Net.Search
             Directory indexStore = NewDirectory();
             RandomIndexWriter writer = new RandomIndexWriter(Random(), indexStore);
 
-            long now = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+            long now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 
             Document doc = new Document();
             // add time that is in the past
@@ -111,7 +111,7 @@ namespace Lucene.Net.Search
             Directory indexStore = NewDirectory();
             RandomIndexWriter writer = new RandomIndexWriter(Random(), indexStore);
 
-            long now = DateTime.Now.Millisecond;
+            long now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 
             Document doc = new Document();
             // add time that is in the future

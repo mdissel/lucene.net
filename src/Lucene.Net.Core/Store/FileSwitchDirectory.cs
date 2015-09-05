@@ -46,7 +46,7 @@ namespace Lucene.Net.Store
             this.PrimaryDir_Renamed = primaryDir;
             this.SecondaryDir_Renamed = secondaryDir;
             this.DoClose = doClose;
-            this.LockFactory_Renamed = primaryDir.LockFactory;
+            this._lockFactory = primaryDir.LockFactory;
         }
 
         /// <summary>
@@ -112,7 +112,7 @@ namespace Lucene.Net.Store
                     files.Add(f);
                 }
             }
-            catch (NoSuchDirectoryException e)
+            catch (NoSuchDirectoryException)
             {
                 // we got NoSuchDirectoryException from both dirs
                 // rethrow the first.

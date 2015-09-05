@@ -50,7 +50,6 @@ namespace Lucene.Net.Index
     using MergeInfo = Lucene.Net.Store.MergeInfo;
     using OpenMode_e = Lucene.Net.Index.IndexWriterConfig.OpenMode_e;
     using Query = Lucene.Net.Search.Query;
-    using ThreadInterruptedException = Lucene.Net.Util.ThreadInterruptedException;
     using TrackingDirectoryWrapper = Lucene.Net.Store.TrackingDirectoryWrapper;
 
     /// <summary>
@@ -247,7 +246,7 @@ namespace Lucene.Net.Index
         internal readonly IndexFileDeleter Deleter;
 
         // used by forceMerge to note those needing merging
-        private IDictionary<SegmentCommitInfo, bool?> SegmentsToMerge = new Dictionary<SegmentCommitInfo, bool?>();
+        private readonly IDictionary<SegmentCommitInfo, bool?> SegmentsToMerge = new Dictionary<SegmentCommitInfo, bool?>();
 
         private int MergeMaxNumSegments;
 
@@ -258,12 +257,12 @@ namespace Lucene.Net.Index
 
         // Holds all SegmentInfo instances currently involved in
         // merges
-        private HashSet<SegmentCommitInfo> mergingSegments = new HashSet<SegmentCommitInfo>();
+        private readonly HashSet<SegmentCommitInfo> mergingSegments = new HashSet<SegmentCommitInfo>();
 
-        private MergePolicy mergePolicy;
+        private readonly MergePolicy mergePolicy;
         private readonly MergeScheduler mergeScheduler;
-        private LinkedList<MergePolicy.OneMerge> PendingMerges = new LinkedList<MergePolicy.OneMerge>();
-        private HashSet<MergePolicy.OneMerge> RunningMerges = new HashSet<MergePolicy.OneMerge>();
+        private readonly LinkedList<MergePolicy.OneMerge> PendingMerges = new LinkedList<MergePolicy.OneMerge>();
+        private readonly HashSet<MergePolicy.OneMerge> RunningMerges = new HashSet<MergePolicy.OneMerge>();
         private IList<MergePolicy.OneMerge> MergeExceptions = new List<MergePolicy.OneMerge>();
         private long MergeGen;
         private bool StopMerges;
@@ -369,7 +368,7 @@ namespace Lucene.Net.Index
         {
             EnsureOpen();
 
-            long tStart = DateTime.Now.Millisecond;
+            long tStart = Environment.TickCount;
 
             if (infoStream.IsEnabled("IW"))
             {
@@ -445,7 +444,7 @@ namespace Lucene.Net.Index
                 }
                 if (infoStream.IsEnabled("IW"))
                 {
-                    infoStream.Message("IW", "getReader took " + (DateTime.Now.Millisecond - tStart) + " msec");
+                    infoStream.Message("IW", "getReader took " + (Environment.TickCount - tStart) + " msec");
                 }
                 success2 = true;
             }
@@ -905,7 +904,7 @@ namespace Lucene.Net.Index
                         // points.
                         if (commit.Directory != directory)
                         {
-                            throw new System.ArgumentException("IndexCommit's directory doesn't match my directory");
+                            throw new ArgumentException(string.Format("IndexCommit's directory doesn't match my directory (mine: {0}, commit's: {1})", directory, commit.Directory));
                         }
                         SegmentInfos oldInfos = new SegmentInfos();
                         oldInfos.Read(directory, commit.SegmentsFileName);
@@ -2135,7 +2134,7 @@ namespace Lucene.Net.Index
                 SegmentsToMerge.Clear();
                 foreach (SegmentCommitInfo info in segmentInfos.Segments)
                 {
-                    SegmentsToMerge[info] = true;
+                    if (info != null) SegmentsToMerge[info] = true;
                 }
                 MergeMaxNumSegments = maxNumSegments;
 
@@ -2144,13 +2143,13 @@ namespace Lucene.Net.Index
                 foreach (MergePolicy.OneMerge merge in PendingMerges)
                 {
                     merge.MaxNumSegments = maxNumSegments;
-                    SegmentsToMerge[merge.Info] = true;
+                    if (merge.Info != null) SegmentsToMerge[merge.Info] = true;
                 }
 
                 foreach (MergePolicy.OneMerge merge in RunningMerges)
                 {
                     merge.MaxNumSegments = maxNumSegments;
-                    SegmentsToMerge[merge.Info] = true;
+                    if (merge.Info != null) SegmentsToMerge[merge.Info] = true;
                 }
             }
 
@@ -2577,7 +2576,8 @@ namespace Lucene.Net.Index
                         infoStream.Message("IW", "rollback: infos=" + SegString(segmentInfos.Segments));
                     }
 
-                    Debug.Assert(TestPoint("rollback before checkpoint"));
+                    var tpResult = TestPoint("rollback before checkpoint");
+                    Debug.Assert(tpResult);
 
                     // Ask deleter to locate unreferenced files & remove
                     // them:
@@ -2862,7 +2862,7 @@ namespace Lucene.Net.Index
 
         /// <summary>
         /// Called internally if any index state has changed. </summary>
-        internal virtual void Changed()
+        internal void Changed()
         {
             lock (this)
             {
@@ -3557,7 +3557,8 @@ namespace Lucene.Net.Index
                 }
 
                 DoBeforeFlush();
-                Debug.Assert(TestPoint("startDoFlush"));
+                var tpResult = TestPoint("startDoFlush");
+                Debug.Assert(tpResult);
                 SegmentInfos toCommit = null;
                 bool anySegmentsFlushed = false;
 
@@ -3715,7 +3716,6 @@ namespace Lucene.Net.Index
         /// you should immediately close the writer.  See <a
         /// href="#OOME">above</a> for details.</p>
         /// </summary>
-        /// <seealso cref= #prepareCommit </seealso>
         public void Commit()
         {
             EnsureOpen();
@@ -3864,7 +3864,8 @@ namespace Lucene.Net.Index
             }
 
             DoBeforeFlush();
-            Debug.Assert(TestPoint("startDoFlush"));
+            var tpResult = TestPoint("startDoFlush");
+            Debug.Assert(tpResult);
             bool success = false;
             try
             {
@@ -4051,9 +4052,9 @@ namespace Lucene.Net.Index
             {
                 if (MergedDeletesAndUpdates_Renamed == null)
                 {
-                    MergedDeletesAndUpdates_Renamed = readerPool.Get(merge.Info_Renamed, true);
+                    MergedDeletesAndUpdates_Renamed = readerPool.Get(merge.info, true);
                     DocMap = merge.GetDocMap(mergeState);
-                    Debug.Assert(DocMap.IsConsistent(merge.Info_Renamed.Info.DocCount));
+                    Debug.Assert(DocMap.IsConsistent(merge.info.Info.DocCount));
                 }
                 if (initWritableLiveDocs && !InitializedWritableLiveDocs)
                 {
@@ -4104,7 +4105,8 @@ namespace Lucene.Net.Index
         {
             lock (this)
             {
-                Debug.Assert(TestPoint("startCommitMergeDeletes"));
+                var tpResult = TestPoint("startCommitMergeDeletes");
+                Debug.Assert(tpResult);
 
                 IList<SegmentCommitInfo> sourceSegments = merge.Segments;
 
@@ -4285,7 +4287,7 @@ namespace Lucene.Net.Index
                     }
                 }
 
-                Debug.Assert(docUpto == merge.Info_Renamed.Info.DocCount);
+                Debug.Assert(docUpto == merge.info.Info.DocCount);
 
                 if (mergedDVUpdates.Any())
                 {
@@ -4307,7 +4309,7 @@ namespace Lucene.Net.Index
                         if (!success)
                         {
                             holder.MergedDeletesAndUpdates_Renamed.DropChanges();
-                            readerPool.Drop(merge.Info_Renamed);
+                            readerPool.Drop(merge.info);
                         }
                     }
                 }
@@ -4330,7 +4332,7 @@ namespace Lucene.Net.Index
                     }
                 }
 
-                merge.Info_Renamed.BufferedDeletesGen = minGen;
+                merge.info.BufferedDeletesGen = minGen;
 
                 return holder.MergedDeletesAndUpdates_Renamed;
             }
@@ -4340,7 +4342,8 @@ namespace Lucene.Net.Index
         {
             lock (this)
             {
-                Debug.Assert(TestPoint("startCommitMerge"));
+                var tpResult = TestPoint("startCommitMerge");
+                Debug.Assert(tpResult);
 
                 if (HitOOM)
                 {
@@ -4375,12 +4378,12 @@ namespace Lucene.Net.Index
                     // so it will be dropped shortly anyway, but not
                     // doing this  makes  MockDirWrapper angry in
                     // TestNRTThreads (LUCENE-5434):
-                    readerPool.Drop(merge.Info_Renamed);
-                    Deleter.DeleteNewFiles(merge.Info_Renamed.Files());
+                    readerPool.Drop(merge.info);
+                    Deleter.DeleteNewFiles(merge.info.Files());
                     return false;
                 }
 
-                ReadersAndUpdates mergedUpdates = merge.Info_Renamed.Info.DocCount == 0 ? null : CommitMergedDeletesAndUpdates(merge, mergeState);
+                ReadersAndUpdates mergedUpdates = merge.info.Info.DocCount == 0 ? null : CommitMergedDeletesAndUpdates(merge, mergeState);
                 //    System.out.println("[" + Thread.currentThread().getName() + "] IW.commitMerge: mergedDeletes=" + mergedDeletes);
 
                 // If the doc store we are using has been closed and
@@ -4388,15 +4391,15 @@ namespace Lucene.Net.Index
                 // started), then we will switch to the compound
                 // format as well:
 
-                Debug.Assert(!segmentInfos.Contains(merge.Info_Renamed));
+                Debug.Assert(!segmentInfos.Contains(merge.info));
 
-                bool allDeleted = merge.Segments.Count == 0 || merge.Info_Renamed.Info.DocCount == 0 || (mergedUpdates != null && mergedUpdates.PendingDeleteCount == merge.Info_Renamed.Info.DocCount);
+                bool allDeleted = merge.Segments.Count == 0 || merge.info.Info.DocCount == 0 || (mergedUpdates != null && mergedUpdates.PendingDeleteCount == merge.info.Info.DocCount);
 
                 if (infoStream.IsEnabled("IW"))
                 {
                     if (allDeleted)
                     {
-                        infoStream.Message("IW", "merged segment " + merge.Info_Renamed + " is 100% deleted" + (KeepFullyDeletedSegments_Renamed ? "" : "; skipping insert"));
+                        infoStream.Message("IW", "merged segment " + merge.info + " is 100% deleted" + (KeepFullyDeletedSegments_Renamed ? "" : "; skipping insert"));
                     }
                 }
 
@@ -4406,7 +4409,7 @@ namespace Lucene.Net.Index
                 // the new segment:
                 Debug.Assert(merge.Segments.Count > 0 || dropSegment);
 
-                Debug.Assert(merge.Info_Renamed.Info.DocCount != 0 || KeepFullyDeletedSegments_Renamed || dropSegment);
+                Debug.Assert(merge.info.Info.DocCount != 0 || KeepFullyDeletedSegments_Renamed || dropSegment);
 
                 if (mergedUpdates != null)
                 {
@@ -4428,7 +4431,7 @@ namespace Lucene.Net.Index
                         if (!success)
                         {
                             mergedUpdates.DropChanges();
-                            readerPool.Drop(merge.Info_Renamed);
+                            readerPool.Drop(merge.info);
                         }
                     }
                 }
@@ -4441,9 +4444,9 @@ namespace Lucene.Net.Index
 
                 if (dropSegment)
                 {
-                    Debug.Assert(!segmentInfos.Contains(merge.Info_Renamed));
-                    readerPool.Drop(merge.Info_Renamed);
-                    Deleter.DeleteNewFiles(merge.Info_Renamed.Files());
+                    Debug.Assert(!segmentInfos.Contains(merge.info));
+                    readerPool.Drop(merge.info);
+                    Deleter.DeleteNewFiles(merge.info.Files());
                 }
 
                 bool success_ = false;
@@ -4487,9 +4490,9 @@ namespace Lucene.Net.Index
                 if (merge.MaxNumSegments != -1 && !dropSegment)
                 {
                     // cascade the forceMerge:
-                    if (!SegmentsToMerge.ContainsKey(merge.Info_Renamed))
+                    if (!SegmentsToMerge.ContainsKey(merge.info))
                     {
-                        SegmentsToMerge[merge.Info_Renamed] = false;
+                        SegmentsToMerge[merge.info] = false;
                     }
                 }
 
@@ -4539,7 +4542,7 @@ namespace Lucene.Net.Index
         {
             bool success = false;
 
-            long t0 = DateTime.Now.Millisecond;
+            long t0 = Environment.TickCount;
 
             try
             {
@@ -4578,9 +4581,9 @@ namespace Lucene.Net.Index
                             {
                                 infoStream.Message("IW", "hit exception during merge");
                             }
-                            if (merge.Info_Renamed != null && !segmentInfos.Contains(merge.Info_Renamed))
+                            if (merge.info != null && !segmentInfos.Contains(merge.info))
                             {
-                                Deleter.Refresh(merge.Info_Renamed.Info.Name);
+                                Deleter.Refresh(merge.info.Info.Name);
                             }
                         }
 
@@ -4598,11 +4601,11 @@ namespace Lucene.Net.Index
             {
                 HandleOOM(oom, "merge");
             }
-            if (merge.Info_Renamed != null && !merge.Aborted)
+            if (merge.info != null && !merge.Aborted)
             {
                 if (infoStream.IsEnabled("IW"))
                 {
-                    infoStream.Message("IW", "merge time " + (DateTime.Now.Millisecond - t0) + " msec for " + merge.Info_Renamed.Info.DocCount + " docs");
+                    infoStream.Message("IW", "merge time " + (Environment.TickCount - t0) + " msec for " + merge.info.Info.DocCount + " docs");
                 }
             }
         }
@@ -4759,7 +4762,8 @@ namespace Lucene.Net.Index
         {
             lock (this)
             {
-                Debug.Assert(TestPoint("startMergeInit"));
+                var testPointResult = TestPoint("startMergeInit");
+                Debug.Assert(testPointResult);
 
                 Debug.Assert(merge.RegisterDone);
                 Debug.Assert(merge.MaxNumSegments == -1 || merge.MaxNumSegments > 0);
@@ -4769,7 +4773,7 @@ namespace Lucene.Net.Index
                     throw new InvalidOperationException("this writer hit an OutOfMemoryError; cannot merge");
                 }
 
-                if (merge.Info_Renamed != null)
+                if (merge.info != null)
                 {
                     // mergeInit already done
                     return;
@@ -4830,7 +4834,7 @@ namespace Lucene.Net.Index
 
                 if (infoStream.IsEnabled("IW"))
                 {
-                    infoStream.Message("IW", "merge seg=" + merge.Info_Renamed.Info.Name + " " + SegString(merge.Segments));
+                    infoStream.Message("IW", "merge seg=" + merge.info.Info.Name + " " + SegString(merge.Segments));
                 }
             }
         }
@@ -4948,7 +4952,7 @@ namespace Lucene.Net.Index
         {
             merge.CheckAborted(directory);
 
-            string mergedName = merge.Info_Renamed.Info.Name;
+            string mergedName = merge.info.Info.Name;
 
             IList<SegmentCommitInfo> sourceSegments = merge.Segments;
 
@@ -5047,7 +5051,7 @@ namespace Lucene.Net.Index
 
                 // we pass merge.getMergeReaders() instead of merge.readers to allow the
                 // OneMerge to return a view over the actual segments to merge
-                SegmentMerger merger = new SegmentMerger(merge.MergeReaders, merge.Info_Renamed.Info, infoStream, dirWrapper, Config_Renamed.TermIndexInterval, checkAbort, GlobalFieldNumberMap, context, Config_Renamed.CheckIntegrityAtMerge);
+                SegmentMerger merger = new SegmentMerger(merge.MergeReaders, merge.info.Info, infoStream, dirWrapper, Config_Renamed.TermIndexInterval, checkAbort, GlobalFieldNumberMap, context, Config_Renamed.CheckIntegrityAtMerge);
 
                 merge.CheckAborted(directory);
 
@@ -5059,7 +5063,7 @@ namespace Lucene.Net.Index
                     if (!merger.ShouldMerge())
                     {
                         // would result in a 0 document segment: nothing to merge!
-                        mergeState = new MergeState(new List<AtomicReader>(), merge.Info_Renamed.Info, infoStream, checkAbort);
+                        mergeState = new MergeState(new List<AtomicReader>(), merge.info.Info, infoStream, checkAbort);
                     }
                     else
                     {
@@ -5073,24 +5077,24 @@ namespace Lucene.Net.Index
                     {
                         lock (this)
                         {
-                            Deleter.Refresh(merge.Info_Renamed.Info.Name);
+                            Deleter.Refresh(merge.info.Info.Name);
                         }
                     }
                 }
-                Debug.Assert(mergeState.SegmentInfo == merge.Info_Renamed.Info);
-                merge.Info_Renamed.Info.Files = new HashSet<string>(dirWrapper.CreatedFiles);
+                Debug.Assert(mergeState.SegmentInfo == merge.info.Info);
+                merge.info.Info.Files = new HashSet<string>(dirWrapper.CreatedFiles);
 
                 // Record which codec was used to write the segment
 
                 if (infoStream.IsEnabled("IW"))
                 {
-                    if (merge.Info_Renamed.Info.DocCount == 0)
+                    if (merge.info.Info.DocCount == 0)
                     {
                         infoStream.Message("IW", "merge away fully deleted segments");
                     }
                     else
                     {
-                        infoStream.Message("IW", "merge codec=" + Codec + " docCount=" + merge.Info_Renamed.Info.DocCount + "; merged segment has " + (mergeState.FieldInfos.HasVectors() ? "vectors" : "no vectors") + "; " + (mergeState.FieldInfos.HasNorms() ? "norms" : "no norms") + "; " + (mergeState.FieldInfos.HasDocValues() ? "docValues" : "no docValues") + "; " + (mergeState.FieldInfos.HasProx() ? "prox" : "no prox") + "; " + (mergeState.FieldInfos.HasProx() ? "freqs" : "no freqs"));
+                        infoStream.Message("IW", "merge codec=" + Codec + " docCount=" + merge.info.Info.DocCount + "; merged segment has " + (mergeState.FieldInfos.HasVectors() ? "vectors" : "no vectors") + "; " + (mergeState.FieldInfos.HasNorms() ? "norms" : "no norms") + "; " + (mergeState.FieldInfos.HasDocValues() ? "docValues" : "no docValues") + "; " + (mergeState.FieldInfos.HasProx() ? "prox" : "no prox") + "; " + (mergeState.FieldInfos.HasProx() ? "freqs" : "no freqs"));
                     }
                 }
 
@@ -5101,18 +5105,18 @@ namespace Lucene.Net.Index
                 bool useCompoundFile;
                 lock (this) // Guard segmentInfos
                 {
-                    useCompoundFile = mergePolicy.UseCompoundFile(segmentInfos, merge.Info_Renamed);
+                    useCompoundFile = mergePolicy.UseCompoundFile(segmentInfos, merge.info);
                 }
 
                 if (useCompoundFile)
                 {
                     success = false;
 
-                    ICollection<string> filesToRemove = merge.Info_Renamed.Files();
+                    ICollection<string> filesToRemove = merge.info.Files();
 
                     try
                     {
-                        filesToRemove = CreateCompoundFile(infoStream, directory, checkAbort, merge.Info_Renamed.Info, context);
+                        filesToRemove = CreateCompoundFile(infoStream, directory, checkAbort, merge.info.Info, context);
                         success = true;
                     }
                     catch (System.IO.IOException ioe)
@@ -5148,7 +5152,7 @@ namespace Lucene.Net.Index
                             {
                                 Deleter.DeleteFile(Lucene.Net.Index.IndexFileNames.SegmentFileName(mergedName, "", Lucene.Net.Index.IndexFileNames.COMPOUND_FILE_EXTENSION));
                                 Deleter.DeleteFile(Lucene.Net.Index.IndexFileNames.SegmentFileName(mergedName, "", Lucene.Net.Index.IndexFileNames.COMPOUND_FILE_ENTRIES_EXTENSION));
-                                Deleter.DeleteNewFiles(merge.Info_Renamed.Files());
+                                Deleter.DeleteNewFiles(merge.info.Files());
                             }
                         }
                     }
@@ -5176,7 +5180,7 @@ namespace Lucene.Net.Index
                         }
                     }
 
-                    merge.Info_Renamed.Info.UseCompoundFile = true;
+                    merge.info.Info.UseCompoundFile = true;
                 }
                 else
                 {
@@ -5193,7 +5197,7 @@ namespace Lucene.Net.Index
                 bool success2 = false;
                 try
                 {
-                    Codec.SegmentInfoFormat().SegmentInfoWriter.Write(directory, merge.Info_Renamed.Info, mergeState.FieldInfos, context);
+                    Codec.SegmentInfoFormat().SegmentInfoWriter.Write(directory, merge.info.Info, mergeState.FieldInfos, context);
                     success2 = true;
                 }
                 finally
@@ -5202,7 +5206,7 @@ namespace Lucene.Net.Index
                     {
                         lock (this)
                         {
-                            Deleter.DeleteNewFiles(merge.Info_Renamed.Files());
+                            Deleter.DeleteNewFiles(merge.info.Files());
                         }
                     }
                 }
@@ -5213,13 +5217,13 @@ namespace Lucene.Net.Index
 
                 if (infoStream.IsEnabled("IW"))
                 {
-                    infoStream.Message("IW", string.Format(CultureInfo.InvariantCulture, "merged segment size=%.3f MB vs estimate=%.3f MB", merge.Info_Renamed.SizeInBytes() / 1024.0 / 1024.0, merge.EstimatedMergeBytes / 1024 / 1024.0));
+                    infoStream.Message("IW", string.Format(CultureInfo.InvariantCulture, "merged segment size=%.3f MB vs estimate=%.3f MB", merge.info.SizeInBytes() / 1024.0 / 1024.0, merge.EstimatedMergeBytes / 1024 / 1024.0));
                 }
 
                 IndexReaderWarmer mergedSegmentWarmer = Config_Renamed.MergedSegmentWarmer;
-                if (PoolReaders && mergedSegmentWarmer != null && merge.Info_Renamed.Info.DocCount != 0)
+                if (PoolReaders && mergedSegmentWarmer != null && merge.info.Info.DocCount != 0)
                 {
-                    ReadersAndUpdates rld = readerPool.Get(merge.Info_Renamed, true);
+                    ReadersAndUpdates rld = readerPool.Get(merge.info, true);
                     SegmentReader sr = rld.GetReader(IOContext.READ);
                     try
                     {
@@ -5256,7 +5260,7 @@ namespace Lucene.Net.Index
                 }
             }
 
-            return merge.Info_Renamed.Info.DocCount;
+            return merge.info.Info.DocCount;
         }
 
         internal virtual void AddMergeException(MergePolicy.OneMerge merge)
@@ -5365,7 +5369,7 @@ namespace Lucene.Net.Index
                 }
                 catch (ThreadInterruptedException ie)
                 {
-                    throw new ThreadInterruptedException(ie);
+                    throw new ThreadInterruptedException("Thread Interrupted Exception", ie);
                 }
             }
         }
@@ -5441,7 +5445,8 @@ namespace Lucene.Net.Index
         /// </summary>
         private void StartCommit(SegmentInfos toSync)
         {
-            Debug.Assert(TestPoint("startStartCommit"));
+            var tpResult = TestPoint("startStartCommit");
+            Debug.Assert(tpResult);
             Debug.Assert(PendingCommit == null);
 
             if (HitOOM)
@@ -5479,13 +5484,15 @@ namespace Lucene.Net.Index
                     Debug.Assert(FilesExist(toSync));
                 }
 
-                Debug.Assert(TestPoint("midStartCommit"));
+                tpResult = TestPoint("midStartCommit");
+                Debug.Assert(tpResult);
 
                 bool pendingCommitSet = false;
 
                 try
                 {
-                    Debug.Assert(TestPoint("midStartCommit2"));
+                    tpResult = TestPoint("midStartCommit2");
+                    Debug.Assert(tpResult);
 
                     lock (this)
                     {
@@ -5528,7 +5535,8 @@ namespace Lucene.Net.Index
                         infoStream.Message("IW", "done all syncs: " + filesToSync);
                     }
 
-                    Debug.Assert(TestPoint("midStartCommitSuccess"));
+                    tpResult = TestPoint("midStartCommitSuccess");
+                    Debug.Assert(tpResult);
                 }
                 finally
                 {
@@ -5558,7 +5566,8 @@ namespace Lucene.Net.Index
             {
                 HandleOOM(oom, "startCommit");
             }
-            Debug.Assert(TestPoint("finishStartCommit"));
+            tpResult = TestPoint("finishStartCommit");
+            Debug.Assert(tpResult);
         }
 
         /// <summary>
@@ -5654,9 +5663,9 @@ namespace Lucene.Net.Index
                 EnsureOpen();
                 if (infoStream.IsEnabled("IW"))
                 {
-                    infoStream.Message("IW", "nrtIsCurrent: infoVersion matches: " + (infos.Version_Renamed == segmentInfos.Version_Renamed) + "; DW changes: " + DocWriter.AnyChanges() + "; BD changes: " + BufferedUpdatesStream.Any());
+                    infoStream.Message("IW", "nrtIsCurrent: infoVersion matches: " + (infos.Version == segmentInfos.Version) + "; DW changes: " + DocWriter.AnyChanges() + "; BD changes: " + BufferedUpdatesStream.Any());
                 }
-                return infos.Version_Renamed == segmentInfos.Version_Renamed && !DocWriter.AnyChanges() && !BufferedUpdatesStream.Any();
+                return infos.Version == segmentInfos.Version && !DocWriter.AnyChanges() && !BufferedUpdatesStream.Any();
             }
         }
 

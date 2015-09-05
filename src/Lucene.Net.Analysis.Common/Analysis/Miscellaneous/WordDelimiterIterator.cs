@@ -1,4 +1,4 @@
-﻿namespace org.apache.lucene.analysis.miscellaneous
+﻿namespace Lucene.Net.Analysis.Miscellaneous
 {
 
 	/*
@@ -17,10 +17,6 @@
 	 * See the License for the specific language governing permissions and
 	 * limitations under the License.
 	 */
-
-	using org.apache.lucene.analysis.miscellaneous;
-//JAVA TO C# CONVERTER TODO TASK: This Java 'import static' statement cannot be converted to C#:
-//	import static org.apache.lucene.analysis.miscellaneous.WordDelimiterFilter.*;
 
 	/// <summary>
 	/// A BreakIterator-like API for iterating over subwords in text, according to WordDelimiterFilter rules.
@@ -84,19 +80,19 @@
 	  // done if separated by these chars?) "," would be an obvious candidate...
 	  static WordDelimiterIterator()
 	  {
-		sbyte[] tab = new sbyte[256];
+		var tab = new sbyte[256];
 		for (int i = 0; i < 256; i++)
 		{
 		  sbyte code = 0;
-		  if (char.IsLower(i))
+		  if (char.IsLower((char)i))
 		  {
 			code |= (sbyte)WordDelimiterFilter.LOWER;
 		  }
-		  else if (char.IsUpper(i))
+		  else if (char.IsUpper((char)i))
 		  {
 			code |= (sbyte)WordDelimiterFilter.UPPER;
 		  }
-		  else if (char.IsDigit(i))
+		  else if (char.IsDigit((char)i))
 		  {
 			code |= (sbyte)WordDelimiterFilter.DIGIT;
 		  }
@@ -221,22 +217,22 @@
 	  /// <returns> {@code true} if the transition indicates a break, {@code false} otherwise </returns>
 	  private bool isBreak(int lastType, int type)
 	  {
-		if ((type_Renamed & lastType) != 0)
+		if ((type & lastType) != 0)
 		{
 		  return false;
 		}
 
-		if (!splitOnCaseChange && WordDelimiterFilter.isAlpha(lastType) && WordDelimiterFilter.isAlpha(type_Renamed))
+		if (!splitOnCaseChange && WordDelimiterFilter.isAlpha(lastType) && WordDelimiterFilter.isAlpha(type))
 		{
 		  // ALPHA->ALPHA: always ignore if case isn't considered.
 		  return false;
 		}
-		else if (WordDelimiterFilter.isUpper(lastType) && WordDelimiterFilter.isAlpha(type_Renamed))
+		else if (WordDelimiterFilter.isUpper(lastType) && WordDelimiterFilter.isAlpha(type))
 		{
 		  // UPPER->letter: Don't split
 		  return false;
 		}
-		else if (!splitOnNumerics && ((WordDelimiterFilter.isAlpha(lastType) && WordDelimiterFilter.isDigit(type_Renamed)) || (WordDelimiterFilter.isDigit(lastType) && WordDelimiterFilter.isAlpha(type_Renamed))))
+		else if (!splitOnNumerics && ((WordDelimiterFilter.isAlpha(lastType) && WordDelimiterFilter.isDigit(type)) || (WordDelimiterFilter.isDigit(lastType) && WordDelimiterFilter.isAlpha(type))))
 		{
 		  // ALPHA->NUMERIC, NUMERIC->ALPHA :Don't split
 		  return false;

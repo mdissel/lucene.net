@@ -70,11 +70,11 @@ namespace Lucene.Net.Support
         public static BitArray And_UnequalLengths(this BitArray bitsA, BitArray bitsB)
         {
             //Cycle only through fewest bits neccessary without requiring size equality
-            int maxIdx = Math.Min(bitsA.Length, bitsB.Length);//exclusive
-            BitArray bits = new BitArray(maxIdx);
+            var maxIdx = Math.Min(bitsA.Length, bitsB.Length);//exclusive
+            var bits = new BitArray(maxIdx);
             for (int i = 0; i < maxIdx; i++)
             {
-                bitsA[i] = bitsA[i] & bitsB[i];
+                bits[i] = bitsA[i] & bitsB[i];
             }
             return bits;
         }
@@ -82,9 +82,9 @@ namespace Lucene.Net.Support
         // Produces a bitwise-or of the two BitArrays without requiring they be the same length
         public static BitArray Or_UnequalLengths(this BitArray bitsA, BitArray bitsB)
         {
-            BitArray shorter = bitsA.Length < bitsB.Length ? bitsA : bitsB;
-            BitArray longer = bitsA.Length >= bitsB.Length ? bitsA : bitsB;
-            BitArray bits = new BitArray(longer.Length);
+            var shorter = bitsA.Length < bitsB.Length ? bitsA : bitsB;
+            var longer = bitsA.Length >= bitsB.Length ? bitsA : bitsB;
+            var bits = new BitArray(longer.Length);
             for (int i = 0; i < longer.Length; i++)
             {
                 if (i >= shorter.Length)
@@ -103,9 +103,9 @@ namespace Lucene.Net.Support
         // Produces a bitwise-xor of the two BitArrays without requiring they be the same length
         public static BitArray Xor_UnequalLengths(this BitArray bitsA, BitArray bitsB)
         {
-            BitArray shorter = bitsA.Length < bitsB.Length ? bitsA : bitsB;
-            BitArray longer = bitsA.Length >= bitsB.Length ? bitsA : bitsB;
-            BitArray bits = new BitArray(longer.Length);
+            var shorter = bitsA.Length < bitsB.Length ? bitsA : bitsB;
+            var longer = bitsA.Length >= bitsB.Length ? bitsA : bitsB;
+            var bits = new BitArray(longer.Length);
             for (int i = 0; i < longer.Length; i++)
             {
                 if (i >= shorter.Length)
@@ -165,7 +165,7 @@ namespace Lucene.Net.Support
         /// <param name="index">The position to set to true.</param>
         public static void Set(this BitArray bits, int index)
         {
-            bits.Set(index, true);
+            bits.SafeSet(index, true);
         }
 
         /// <summary>
@@ -179,7 +179,7 @@ namespace Lucene.Net.Support
         {
             for (int i = fromIndex; i < toIndex; ++i)
             {
-                bits.Set(i, value);
+                bits.SafeSet(i, value);
             }
         }
 
@@ -190,7 +190,7 @@ namespace Lucene.Net.Support
         /// <param name="index">The position to set to false.</param>
         public static void Clear(this BitArray bits, int index)
         {
-            bits.Set(index, false);
+            bits.SafeSet(index, false);
         }
 
         /// <summary>
@@ -233,7 +233,7 @@ namespace Lucene.Net.Support
         // Prevents exceptions from being thrown when the index is too high.
         public static bool SafeGet(this BitArray a, int loc)
         {
-            return loc >= a.Count ? false : a.Get(loc);
+            return loc < a.Count && a.Get(loc);
         }
 
         //Emulates the Java BitSet.Set() method. Required to reconcile differences between Java BitSet and C# BitArray
@@ -289,7 +289,7 @@ namespace Lucene.Net.Support
 
             for (int i = 0; i < bitArrayCardinality; i++)
             {
-                if (a.Get(i) != b.Get(i))
+                if (a.SafeGet(i) != b.Get(i))
                     return false;
             }
 

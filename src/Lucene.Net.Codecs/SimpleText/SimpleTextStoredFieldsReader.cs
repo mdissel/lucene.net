@@ -193,7 +193,7 @@ namespace Lucene.Net.Codecs.SimpleText
             }
             else if (Equals(type, SimpleTextStoredFieldsWriter.TYPE_BINARY))
             {
-                var copy = new sbyte[_scratch.Length - SimpleTextStoredFieldsWriter.VALUE.Length];
+                var copy = new byte[_scratch.Length - SimpleTextStoredFieldsWriter.VALUE.Length];
                 Array.Copy(_scratch.Bytes, _scratch.Offset + SimpleTextStoredFieldsWriter.VALUE.Length, copy, 0, copy.Length);
                 visitor.BinaryField(fieldInfo, copy);
             }
@@ -255,7 +255,7 @@ namespace Lucene.Net.Codecs.SimpleText
         private int ParseIntAt(int offset)
         {
             UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + offset, _scratch.Length - offset, _scratchUtf16);
-            return ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+            return ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
         }
 
         private bool EqualsAt(BytesRef a, BytesRef b, int bOffset)

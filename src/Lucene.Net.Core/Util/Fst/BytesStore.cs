@@ -482,15 +482,11 @@ namespace Lucene.Net.Util.Fst
                 }
                 set
                 {
-                    // NOTE: a little weird because if you
-                    // setPosition(0), the next byte you read is
-                    // bytes[0] ... but I would expect bytes[-1] (ie,
-                    // EOF)...?
                     int bufferIndex = (int)(value >> OuterInstance.blockBits);
-                    nextBuffer = bufferIndex - 1;
+                    nextBuffer = bufferIndex + 1;
                     OuterInstance.Current = OuterInstance.Blocks[bufferIndex];
                     nextRead = (int)(value & OuterInstance.BlockMask);
-                    Debug.Assert(OuterInstance.Position == value, "pos=" + value + " getPos()=" + OuterInstance.Position);
+                    Debug.Assert(this.Position == value, "pos=" + value + " getPos()=" + this.Position);
                 }
             }
 
@@ -524,12 +520,12 @@ namespace Lucene.Net.Util.Fst
             public ReverseBytesReaderAnonymousInner(BytesStore outerInstance)
             {
                 this.OuterInstance = outerInstance;
-                outerInstance.Current = outerInstance.Blocks.Count == 0 ? null : outerInstance.Blocks[0];
+                Current = outerInstance.Blocks.Count == 0 ? null : outerInstance.Blocks[0];
                 nextBuffer = -1;
                 nextRead = 0;
             }
 
-            private sbyte[] Current;
+            private byte[] Current;
             private int nextBuffer;
             private int nextRead;
 
@@ -537,15 +533,15 @@ namespace Lucene.Net.Util.Fst
             {
                 if (nextRead == -1)
                 {
-                    OuterInstance.Current = OuterInstance.Blocks[nextBuffer--];
+                    Current = OuterInstance.Blocks[nextBuffer--];
                     nextRead = OuterInstance.BlockSize - 1;
                 }
-                return OuterInstance.Current[nextRead--];
+                return Current[nextRead--];
             }
 
             public override void SkipBytes(int count)
             {
-                Position = OuterInstance.Position - count;
+                Position = Position - count;
             }
 
             public override void ReadBytes(byte[] b, int offset, int len)
@@ -564,12 +560,15 @@ namespace Lucene.Net.Util.Fst
                 }
                 set
                 {
+                    // NOTE: a little weird because if you
+                    // setPosition(0), the next byte you read is
+                    // bytes[0] ... but I would expect bytes[-1] (ie,
+                    // EOF)...?
                     int bufferIndex = (int)(value >> OuterInstance.blockBits);
-                    nextBuffer = bufferIndex + 1;
-                    OuterInstance.Current = OuterInstance.Blocks[bufferIndex];
+                    nextBuffer = bufferIndex - 1;
+                    Current = OuterInstance.Blocks[bufferIndex];
                     nextRead = (int)(value & OuterInstance.BlockMask);
-                    //LUCENE TODO: Put this back
-                    //Debug.Assert(OuterInstance.Position == value);
+                    Debug.Assert(this.Position == value, "value=" + value + " this.Position=" + this.Position);
                 }
             }
 

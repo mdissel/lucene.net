@@ -1,3 +1,4 @@
+using System;
 using Lucene.Net.Randomized.Generators;
 using Lucene.Net.Support;
 using NUnit.Framework;
@@ -44,9 +45,9 @@ namespace Lucene.Net.Util
             int max = b.Length();
             for (int i = 0; i < max; i++)
             {
-                if (a.Get(i) != b.Get(i))
+                if (a.SafeGet(i) != b.Get(i))
                 {
-                    Assert.Fail("mismatch: BitSet=[" + i + "]=" + a.Get(i));
+                    Assert.Fail("mismatch: BitSet=[" + i + "]=" + a.SafeGet(i));
                 }
             }
         }
@@ -70,7 +71,7 @@ namespace Lucene.Net.Util
             {
                 // aa = a.PrevSetBit(aa-1);
                 aa--;
-                while ((aa >= 0) && (aa >= a.Length || !a.Get(aa)))
+                while ((aa >= 0) && (aa >= a.Length || !a.SafeGet(aa)))
                 {
                     aa--;
                 }
@@ -151,19 +152,19 @@ namespace Lucene.Net.Util
                         int idx;
 
                         idx = Random().Next(sz);
-                        a.Set(idx, true);
+                        a.SafeSet(idx, true);
                         b.Set(idx);
 
                         idx = Random().Next(sz);
-                        a.Set(idx, false);
+                        a.SafeSet(idx, false);
                         b.Clear(idx);
 
                         idx = Random().Next(sz);
-                        a.Set(idx, !a.Get(idx));
+                        a.SafeSet(idx, !a.SafeGet(idx));
                         b.Flip(idx, idx + 1);
 
                         idx = Random().Next(sz);
-                        a.Set(idx, !a.Get(idx));
+                        a.SafeSet(idx, !a.SafeGet(idx));
                         b.Flip(idx, idx + 1);
 
                         bool val2 = b.Get(idx);
@@ -264,6 +265,64 @@ namespace Lucene.Net.Util
         {
             DoRandomSets(AtLeast(1200), AtLeast(1000), 1);
             DoRandomSets(AtLeast(1200), AtLeast(1000), 2);
+        }
+
+        [Test]
+        public void TestClearSmall()
+        {
+            FixedBitSet a = new FixedBitSet(30);   // 0110010111001000101101001001110...0
+            int[] onesA = { 1, 2, 5, 7, 8, 9, 12, 16, 18, 19, 21, 24, 27, 28, 29 };
+
+            for (int i = 0; i < onesA.size(); i++)
+            {
+                a.Set(onesA[i]);
+            }
+
+            FixedBitSet b = new FixedBitSet(30);   // 0110000001001000101101001001110...0
+            int[] onesB = { 1, 2, 9, 12, 16, 18, 19, 21, 24, 27, 28, 29 };
+
+            for (int i = 0; i < onesB.size(); i++)
+            {
+                b.Set(onesB[i]);
+            }
+
+            a.Clear(5, 9);
+            Assert.True(a.Equals(b));
+
+            a.Clear(9, 10);
+            Assert.False(a.Equals(b));
+
+            a.Set(9);
+            Assert.True(a.Equals(b));
+        }
+
+        [Test]
+        public void TestClearLarge()
+        {
+            int iters = AtLeast(1000);
+            for (int it = 0; it < iters; it++)
+            {
+                Random random = new Random();
+                int sz = AtLeast(1200);
+                FixedBitSet a = new FixedBitSet(sz);
+                FixedBitSet b = new FixedBitSet(sz);
+                int from = random.Next(sz - 1);
+                int to = random.Next(from, sz);
+
+                for (int i = 0; i < sz / 2; i++)
+                {
+                    int index = random.Next(sz - 1);
+                    a.Set(index);
+
+                    if (index < from || index >= to)
+                    {
+                        b.Set(index);
+                    }
+                }
+
+                a.Clear(from, to);
+                Assert.True(a.Equals(b));
+            }
         }
 
         // uncomment to run a bigger test (~2 minutes).
@@ -383,7 +442,7 @@ namespace Lucene.Net.Util
                     bs.CopyTo(copy, bs.Length - 1);
                     bs = MakeBitSet(copy);
                 }*/
-                bs.Set(e, true);
+                bs.SafeSet(e, true);
             }
             return bs;
         }

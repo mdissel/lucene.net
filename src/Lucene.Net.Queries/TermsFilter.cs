@@ -67,6 +67,11 @@ namespace Lucene.Net.Queries
 
             public FieldAndTermEnumAnonymousInnerClassHelper(List<Term> terms)
             {
+                if (!terms.Any())
+                {
+                    throw new ArgumentException("no terms provided");
+                }
+
                 this.terms = terms;
                 terms.Sort();
                 iter = terms.GetEnumerator();
@@ -79,8 +84,8 @@ namespace Lucene.Net.Queries
                 if (iter.MoveNext())
                 {
                     var next = iter.Current;
-                    field = next.Field();
-                    return next.Bytes();
+                    field = next.Field;
+                    return next.Bytes;
                 }
                 return null;
             }
@@ -102,6 +107,11 @@ namespace Lucene.Net.Queries
             public FieldAndTermEnumAnonymousInnerClassHelper2(string field, List<BytesRef> terms)
                 : base(field)
             {
+                if (!terms.Any())
+                {
+                    throw new ArgumentException("no terms provided");
+                }
+
                 this.terms = terms;
                 terms.Sort();
                 iter = terms.GetEnumerator();

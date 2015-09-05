@@ -206,7 +206,7 @@ namespace Lucene.Net.Codecs.SimpleText
                                 }
                                 else
                                 {
-                                    var payloadBytes = new sbyte[_scratch.Length - SimpleTextTermVectorsWriter.PAYLOAD.Length];
+                                    var payloadBytes = new byte[_scratch.Length - SimpleTextTermVectorsWriter.PAYLOAD.Length];
                                     Array.Copy(_scratch.Bytes, _scratch.Offset + SimpleTextTermVectorsWriter.PAYLOAD.Length, payloadBytes, 0,
                                         payloadBytes.Length);
                                     postings.PAYLOADS[k] = new BytesRef(payloadBytes);
@@ -261,7 +261,7 @@ namespace Lucene.Net.Codecs.SimpleText
         private int ParseIntAt(int offset)
         {
             UnicodeUtil.UTF8toUTF16(_scratch.Bytes, _scratch.Offset + offset, _scratch.Length - offset, _scratchUtf16);
-            return ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.length);
+            return ArrayUtil.ParseInt(_scratchUtf16.Chars, 0, _scratchUtf16.Length);
         }
 
         private string ReadString(int offset, BytesRef scratch)

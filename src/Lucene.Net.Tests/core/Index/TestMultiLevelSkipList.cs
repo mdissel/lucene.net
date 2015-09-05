@@ -84,7 +84,7 @@ namespace Lucene.Net.Index
             for (int i = 0; i < 5000; i++)
             {
                 Document d1 = new Document();
-                d1.Add(NewTextField(term.Field(), term.Text(), Field.Store.NO));
+                d1.Add(NewTextField(term.Field, term.Text(), Field.Store.NO));
                 writer.AddDocument(d1);
             }
             writer.Commit();
@@ -120,7 +120,7 @@ namespace Lucene.Net.Index
             tp.NextPosition();
             BytesRef b = tp.Payload;
             Assert.AreEqual(1, b.Length);
-            Assert.AreEqual((sbyte)target, b.Bytes[b.Offset], "Wrong payload for the target " + target + ": " + b.Bytes[b.Offset]);
+            Assert.AreEqual((sbyte)target, (sbyte)b.Bytes[b.Offset], "Wrong payload for the target " + target + ": " + (sbyte)b.Bytes[b.Offset]);
         }
 
         private class PayloadAnalyzer : Analyzer
@@ -146,7 +146,7 @@ namespace Lucene.Net.Index
                 PayloadAtt = AddAttribute<IPayloadAttribute>();
             }
 
-            public override bool IncrementToken()
+            public sealed override bool IncrementToken()
             {
                 bool hasNext = input.IncrementToken();
                 if (hasNext)

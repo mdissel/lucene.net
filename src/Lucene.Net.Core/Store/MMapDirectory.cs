@@ -198,23 +198,17 @@ namespace Lucene.Net.Store
         public override IndexInput OpenInput(string name, IOContext context)
         {
             EnsureOpen();
-            FileInfo file = new FileInfo(Path.Combine(Directory.FullName, name));
+            var file = new FileInfo(Path.Combine(Directory.FullName, name));
 
-            FileStream c = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var c = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
-            return new MMapIndexInput(this, "MMapIndexInput(path=\"" + file.ToString() + "\")", c);
+            return new MMapIndexInput(this, "MMapIndexInput(path=\"" + file + "\")", c);
         }
 
         public override IndexInputSlicer CreateSlicer(string name, IOContext context)
         {
-            EnsureOpen();
-            FileInfo file = new FileInfo(Path.Combine(Directory.FullName, name));
+            var full = (MMapIndexInput)OpenInput(name, context);
 
-            FileStream c = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-            var full = new MMapIndexInput(this, "MMapIndexInputSlicer(path=\"" + file.ToString() + "\")", c);
-
-            //MMapIndexInput full = (MMapIndexInput)OpenInput(name, context);
             return new IndexInputSlicerAnonymousInnerClassHelper(this, full);
         }
 
@@ -222,9 +216,9 @@ namespace Lucene.Net.Store
         {
             private readonly MMapDirectory OuterInstance;
 
-            private Lucene.Net.Store.MMapDirectory.MMapIndexInput Full;
+            private MMapIndexInput Full;
 
-            public IndexInputSlicerAnonymousInnerClassHelper(MMapDirectory outerInstance, Lucene.Net.Store.MMapDirectory.MMapIndexInput full)
+            public IndexInputSlicerAnonymousInnerClassHelper(MMapDirectory outerInstance, MMapIndexInput full)
                 : base(outerInstance)
             {
                 this.OuterInstance = outerInstance;
@@ -352,14 +346,16 @@ namespace Lucene.Net.Store
              */
 
             if (input.memoryMappedFile == null)
-                input.memoryMappedFile = MemoryMappedFile.CreateFromFile(fc, null, length == 0 ? 100 : length, MemoryMappedFileAccess.ReadWrite, null, HandleInheritability.None, false);
+            {
+                input.memoryMappedFile = MemoryMappedFile.CreateFromFile(fc, null, length == 0 ? 100 : length, MemoryMappedFileAccess.Read, null, HandleInheritability.Inheritable, false);
+            }
 
             long bufferStart = 0L;
             for (int bufNr = 0; bufNr < nrBuffers; bufNr++)
             {
                 int bufSize = (int)((length > (bufferStart + chunkSize)) ? chunkSize : (length - bufferStart));
                 //LUCENE TO-DO
-                buffers[bufNr] = new MemoryMappedFileByteBuffer(input.memoryMappedFile.CreateViewAccessor(offset + bufferStart, bufSize), -1, 0, bufSize, bufSize);
+                buffers[bufNr] = new MemoryMappedFileByteBuffer(input.memoryMappedFile.CreateViewAccessor(offset + bufferStart, bufSize, MemoryMappedFileAccess.Read), -1, 0, bufSize, bufSize);
                 //buffers[bufNr] = fc.Map(FileStream.MapMode.READ_ONLY, offset + bufferStart, bufSize);
                 bufferStart += bufSize;
             }

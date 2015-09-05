@@ -36,7 +36,6 @@ namespace Lucene.Net.Search
 
     public abstract class LiveFieldValues<S, T> : ReferenceManager.RefreshListener, IDisposable
         where S : class
-        where T : struct
     {
         private volatile IDictionary<string, T> Current = new ConcurrentDictionary<string, T>();
         private volatile IDictionary<string, T> Old = new ConcurrentDictionary<string, T>();
@@ -111,27 +110,28 @@ namespace Lucene.Net.Search
         public virtual T Get(string id)
         {
             // First try to get the "live" value:
-            T value = Current[id];
-            if ((object)value == (object)MissingValue)
+            T value;
+            Current.TryGetValue(id, out value);
+            if (EqualityComparer<T>.Default.Equals(value, MissingValue))
             {
                 // Deleted but the deletion is not yet reflected in
                 // the reader:
                 return default(T);
             }
-            else if ((object)value != (object)default(T))
+            else if (!EqualityComparer<T>.Default.Equals(value, default(T)))
             {
                 return value;
             }
             else
             {
-                value = Old[id];
-                if ((object)value == (object)MissingValue)
+                Old.TryGetValue(id, out value);
+                if (EqualityComparer<T>.Default.Equals(value, MissingValue))
                 {
                     // Deleted but the deletion is not yet reflected in
                     // the reader:
                     return default(T);
                 }
-                else if ((object)value != (object)default(T))
+                else if (!EqualityComparer<T>.Default.Equals(value, default(T)))
                 {
                     return value;
                 }

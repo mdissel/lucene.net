@@ -58,6 +58,7 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.ServiceModel" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Analysis\BaseTokenStreamTestCase.cs">
@@ -126,6 +127,7 @@
     <Compile Include="Analysis\VocabularyAssert.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Attributes\LongRunningTestAttribute.cs" />
     <Compile Include="Codecs\asserting\AssertingCodec.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -417,6 +419,7 @@
     <Compile Include="Store\TestHelper.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Support\FloatUtils.cs" />
     <Compile Include="Support\RandomizedTest.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -450,6 +453,7 @@
     <Compile Include="Util\Paths.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Util\LuceneTestCaseWithReducedFloatPrecision.cs" />
     <Compile Include="Util\TestRuleSetupAndRestoreClassEnv.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -467,6 +471,7 @@
     <Compile Include="JavaCompatibility\LuceneTestCase.cs" />
     <Compile Include="JavaCompatibility\LuceneTypesHelpers.cs" />
     <Compile Include="JavaCompatibility\SystemTypesHelpers.cs" />
+    <Compile Include="Util\VirtualMethod.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Lucene.Net.Core\Lucene.Net.csproj">

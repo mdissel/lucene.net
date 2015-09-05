@@ -1,5 +1,7 @@
+using Lucene.Net.Attributes;
 using Lucene.Net.Randomized.Generators;
 using Lucene.Net.Support;
+using Lucene.Net.Util;
 using NUnit.Framework;
 using System;
 using System.IO;
@@ -34,7 +36,7 @@ namespace Lucene.Net.Store
         [Test]
         public virtual void TestDetectClose()
         {
-            DirectoryInfo tempDir = new System.IO.DirectoryInfo(AppSettings.Get("tempDir", System.IO.Path.GetTempPath()));//CreateTempDir(LuceneTestCase.TestClass.SimpleName);
+            DirectoryInfo tempDir = new System.IO.DirectoryInfo("TestDetectClose");// LUCENENET TODO LuceneTestCase.TestClass.SimpleName
             Directory[] dirs = new Directory[] { new RAMDirectory(), new SimpleFSDirectory(tempDir), new NIOFSDirectory(tempDir) };
 
             foreach (Directory dir in dirs)
@@ -53,8 +55,7 @@ namespace Lucene.Net.Store
 
         // test is occasionally very slow, i dont know why
         // try this seed: 7D7E036AD12927F5:93333EF9E6DE44DE
-        [Ignore]//was marked @nightly
-        [Test]
+        [Test, LongRunningTest, Timeout(int.MaxValue)]
         public virtual void TestThreadSafety()
         {
             BaseDirectoryWrapper dir = NewDirectory();
@@ -82,8 +83,8 @@ namespace Lucene.Net.Store
 
         private class TheThread : ThreadClass
         {
-            private string name;
-            private BaseDirectoryWrapper outerBDWrapper;
+            private readonly string name;
+            private readonly BaseDirectoryWrapper outerBDWrapper;
 
             public TheThread(string name, BaseDirectoryWrapper baseDirectoryWrapper)
             {
@@ -99,8 +100,7 @@ namespace Lucene.Net.Store
 
                     try
                     {
-                        IndexOutput output = outerBDWrapper.CreateOutput(fileName, NewIOContext(Random()));
-                        output.Dispose();
+                        using (IndexOutput output = outerBDWrapper.CreateOutput(fileName, NewIOContext(Random()))) { }
                         Assert.IsTrue(SlowFileExists(outerBDWrapper, fileName));
                     }
                     catch (IOException e)
@@ -113,12 +113,12 @@ namespace Lucene.Net.Store
 
         private class TheThread2 : ThreadClass
         {
-            private string name;
-            private BaseDirectoryWrapper outerBDWrapper;
+            private string _name;
+            private readonly BaseDirectoryWrapper outerBDWrapper;
 
             public TheThread2(string name, BaseDirectoryWrapper baseDirectoryWrapper)
             {
-                this.name = name;
+                this._name = name;
                 outerBDWrapper = baseDirectoryWrapper;
             }
 
@@ -133,7 +133,7 @@ namespace Lucene.Net.Store
                         {
                             try
                             {
-                                IndexInput input = outerBDWrapper.OpenInput(file, NewIOContext(Random()));
+                                using (IndexInput input = outerBDWrapper.OpenInput(file, NewIOContext(Random()))) { }
                             }
                             catch (FileNotFoundException fne)
                             {
@@ -161,18 +161,18 @@ namespace Lucene.Net.Store
 
         // Test that different instances of FSDirectory can coexist on the same
         // path, can read, write, and lock files.
-        [Test]
+        [Test, Timeout(int.MaxValue)]
         public virtual void TestDirectInstantiation()
         {
             DirectoryInfo path = CreateTempDir("testDirectInstantiation");
 
-            sbyte[] largeBuffer = new sbyte[Random().Next(256 * 1024)], largeReadBuffer = new sbyte[largeBuffer.Length];
+            byte[] largeBuffer = new byte[Random().Next(256 * 1024)], largeReadBuffer = new byte[largeBuffer.Length];
             for (int i = 0; i < largeBuffer.Length; i++)
             {
-                largeBuffer[i] = (sbyte)i; // automatically loops with modulo
+                largeBuffer[i] = (byte)i; // automatically loops with modulo
             }
 
-            FSDirectory[] dirs = new FSDirectory[] { new SimpleFSDirectory(path, null), new NIOFSDirectory(path, null), new MMapDirectory(path, null) };
+            var dirs = new FSDirectory[] { new SimpleFSDirectory(path, null), new NIOFSDirectory(path, null), new MMapDirectory(path, null) };
 
             for (int i = 0; i < dirs.Length; i++)
             {
@@ -181,7 +181,7 @@ namespace Lucene.Net.Store
                 string fname = "foo." + i;
                 string lockname = "foo" + i + ".lck";
                 IndexOutput @out = dir.CreateOutput(fname, NewIOContext(Random()));
-                @out.WriteByte((sbyte)i);
+                @out.WriteByte((byte)(sbyte)i);
                 @out.WriteBytes(largeBuffer, largeBuffer.Length);
                 @out.Dispose();
 
@@ -199,14 +199,14 @@ namespace Lucene.Net.Store
                     }
 
                     IndexInput input = d2.OpenInput(fname, NewIOContext(Random()));
-                    Assert.AreEqual((sbyte)i, input.ReadByte());
+                    Assert.AreEqual((byte)i, input.ReadByte());
                     // read array with buffering enabled
-                    Arrays.Fill(largeReadBuffer, (sbyte)0);
+                    Arrays.Fill(largeReadBuffer, (byte)0);
                     input.ReadBytes(largeReadBuffer, 0, largeReadBuffer.Length, true);
                     Assert.AreEqual(largeBuffer, largeReadBuffer);
                     // read again without using buffer
                     input.Seek(1L);
-                    Arrays.Fill(largeReadBuffer, (sbyte)0);
+                    Arrays.Fill(largeReadBuffer, (byte)0);
                     input.ReadBytes(largeReadBuffer, 0, largeReadBuffer.Length, false);
                     Assert.AreEqual(largeBuffer, largeReadBuffer);
                     input.Dispose();
@@ -253,15 +253,14 @@ namespace Lucene.Net.Store
                 dir.Dispose();
                 Assert.IsFalse(dir.IsOpen);
             }
-
-            System.IO.Directory.Delete(path.FullName, true);
         }
 
         // LUCENE-1464
         [Test]
         public virtual void TestDontCreate()
         {
-            DirectoryInfo path = new DirectoryInfo(Path.Combine(AppSettings.Get("tmpDir", ""), "doesnotexist"));
+            var parentFolder = CreateTempDir(this.GetType().Name.ToLowerInvariant());
+            var path = new DirectoryInfo(Path.Combine(parentFolder.FullName, "doesnotexist"));
             try
             {
                 Assert.IsTrue(!path.Exists);
@@ -271,7 +270,7 @@ namespace Lucene.Net.Store
             }
             finally
             {
-                System.IO.Directory.Delete(path.FullName, true);
+                if (path.Exists) System.IO.Directory.Delete(path.FullName, true);
             }
         }
 
@@ -340,7 +339,7 @@ namespace Lucene.Net.Store
                 Assert.IsTrue(SlowFileExists(fsDir, "afile"));
                 try
                 {
-                    new SimpleFSDirectory(new DirectoryInfo(Path.Combine(path.FullName, "afile")), null);
+                    var d = new SimpleFSDirectory(new DirectoryInfo(Path.Combine(path.FullName, "afile")), null);
                     Assert.Fail("did not hit expected exception");
                 }
                 catch (NoSuchDirectoryException nsde)
@@ -358,46 +357,45 @@ namespace Lucene.Net.Store
         [Test]
         public virtual void TestFsyncDoesntCreateNewFiles()
         {
-            //File path = CreateTempDir("nocreate");
-            DirectoryInfo path = new DirectoryInfo(Path.Combine(AppSettings.Get("tempDir", ""), "nocreate"));
+            var path = CreateTempDir("nocreate");
             Console.WriteLine(path.FullName);
-            Directory fsdir = new SimpleFSDirectory(path);
 
-            // write a file
-            IndexOutput @out = fsdir.CreateOutput("afile", NewIOContext(Random()));
-            @out.WriteString("boo");
-            @out.Dispose();
-
-            // delete it
-            try
+            using (Directory fsdir = new SimpleFSDirectory(path))
             {
-                var newDir = new DirectoryInfo(Path.Combine(path.FullName, "afile"));
-                newDir.Create();
-                newDir.Delete();
-            }
-            catch (Exception)
-            {
-                Assert.Fail("Deletion of new Directory should never fail.");
-            }
+                // write a file
+                using (var o = fsdir.CreateOutput("afile", NewIOContext(Random())))
+                {
+                    o.WriteString("boo");
+                }
 
-            // directory is empty
-            Assert.AreEqual(0, fsdir.ListAll().Length);
+                // delete it
+                try
+                {
+                    File.Delete(Path.Combine(path.FullName, "afile"));
+                }
+                catch (Exception e)
+                {
+                    Assert.Fail("Deletion of new Directory should never fail.\nException thrown: {0}", e);
+                }
 
-            // fsync it
-            try
-            {
-                fsdir.Sync(CollectionsHelper.Singleton("afile"));
-                Assert.Fail("didn't get expected exception, instead fsync created new files: " + Arrays.AsList(fsdir.ListAll()));
+                // directory is empty
+                Assert.AreEqual(0, fsdir.ListAll().Length);
+
+                // fsync it
+                try
+                {
+                    fsdir.Sync(Collections.Singleton("afile"));
+                    Assert.Fail("didn't get expected exception, instead fsync created new files: " +
+                                Arrays.AsList(fsdir.ListAll()));
+                }
+                catch (FileNotFoundException)
+                {
+                    // ok
+                }
+
+                // directory is still empty
+                Assert.AreEqual(0, fsdir.ListAll().Length);
             }
-            catch (FileNotFoundException /*| NoSuchFileException*/ expected)
-            {
-                // ok
-            }
-
-            // directory is still empty
-            Assert.AreEqual(0, fsdir.ListAll().Length);
-
-            fsdir.Dispose();
         }
     }
 }

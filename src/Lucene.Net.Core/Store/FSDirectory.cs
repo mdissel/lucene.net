@@ -114,26 +114,11 @@ namespace Lucene.Net.Store
         [Obsolete("this constant is no longer used since Lucene 4.5.")]
         public const int DEFAULT_READ_CHUNK_SIZE = 8192;
 
-        protected internal readonly DirectoryInfo Directory_Renamed; // The underlying filesystem directory
+        protected internal readonly DirectoryInfo directory; // The underlying filesystem directory
         protected internal readonly ISet<string> StaleFiles = new HashSet<string>(); // Files written, but not yet sync'ed
         private int ChunkSize = DEFAULT_READ_CHUNK_SIZE;
 
-        // returns the canonical version of the directory, creating it if it doesn't exist.
-        private static DirectoryInfo GetCanonicalPath(DirectoryInfo file)
-        {
-            try
-            {
-                file.Create();
-            }
-            catch (IOException)
-            {
-                //File already exists
-            }
-
-            return file;
-        }
-
-        public FSDirectory(DirectoryInfo dir)
+        protected FSDirectory(DirectoryInfo dir)
             : this(dir, null)
         {
         }
@@ -151,7 +136,7 @@ namespace Lucene.Net.Store
             {
                 lockFactory = new NativeFSLockFactory();
             }
-            Directory_Renamed = GetCanonicalPath(path);
+            directory = path; // Lucene.NET doesn't need to call GetCanonicalPath since we already have DirectoryInfo handy
 
             if (File.Exists(path.FullName))
             {
@@ -226,10 +211,10 @@ namespace Lucene.Net.Store
                     // if the lock factory has no lockDir set, use the this directory as lockDir
                     if (dir == null)
                     {
-                        lf.LockDir = Directory_Renamed;
+                        lf.LockDir = directory;
                         lf.LockPrefix = null;
                     }
-                    else if (dir.FullName.Equals(Directory_Renamed.FullName))
+                    else if (dir.FullName.Equals(directory.FullName))
                     {
                         lf.LockPrefix = null;
                     }
@@ -296,7 +281,7 @@ namespace Lucene.Net.Store
         public override string[] ListAll()
         {
             EnsureOpen();
-            return ListAll(Directory_Renamed);
+            return ListAll(directory);
         }
 
         /// <summary>
@@ -304,7 +289,7 @@ namespace Lucene.Net.Store
         public override bool FileExists(string name)
         {
             EnsureOpen();
-            return File.Exists(Path.Combine(Directory_Renamed.FullName, name));
+            return File.Exists(Path.Combine(directory.FullName, name));
         }
 
         /// <summary>
@@ -312,7 +297,7 @@ namespace Lucene.Net.Store
         public override long FileLength(string name)
         {
             EnsureOpen();
-            FileInfo file = new FileInfo(Path.Combine(Directory_Renamed.FullName, name));
+            FileInfo file = new FileInfo(Path.Combine(directory.FullName, name));
             long len = file.Length;
             if (len == 0 && !file.Exists)
             {
@@ -329,7 +314,7 @@ namespace Lucene.Net.Store
         public override void DeleteFile(string name)
         {
             EnsureOpen();
-            FileInfo file = new FileInfo(Path.Combine(Directory_Renamed.FullName, name));
+            FileInfo file = new FileInfo(Path.Combine(directory.FullName, name));
             try
             {
                 file.Delete();
@@ -353,19 +338,19 @@ namespace Lucene.Net.Store
 
         protected internal virtual void EnsureCanWrite(string name)
         {
-            if (!Directory_Renamed.Exists)
+            if (!directory.Exists)
             {
                 try
                 {
-                    Directory_Renamed.Create();
+                    directory.Create();
                 }
                 catch
                 {
-                    throw new System.IO.IOException("Cannot create directory: " + Directory_Renamed);
+                    throw new System.IO.IOException("Cannot create directory: " + directory);
                 }
             }
 
-            FileInfo file = new FileInfo(Path.Combine(Directory_Renamed.FullName, name));
+            FileInfo file = new FileInfo(Path.Combine(directory.FullName, name));
             if (file.Exists) // delete existing, if any
             {
                 try
@@ -390,7 +375,7 @@ namespace Lucene.Net.Store
             ISet<string> toSync = new HashSet<string>(names);
             toSync.IntersectWith(StaleFiles);
 
-            foreach (string name in toSync)
+            foreach (var name in toSync)
             {
                 Fsync(name);
             }
@@ -399,7 +384,7 @@ namespace Lucene.Net.Store
             // (otherwise it can happen that the directory does not yet exist)!
             if (toSync.Count > 0)
             {
-                IOUtils.Fsync(Directory_Renamed.FullName, true);
+                IOUtils.Fsync(directory.FullName, true);
             }
 
             StaleFiles.ExceptWith(toSync);
@@ -413,7 +398,7 @@ namespace Lucene.Net.Store
                 string dirName; // name to be hashed
                 try
                 {
-                    dirName = Directory_Renamed.FullName;
+                    dirName = directory.FullName;
                 }
                 catch (System.IO.IOException e)
                 {
@@ -434,10 +419,7 @@ namespace Lucene.Net.Store
         /// Closes the store to future operations. </summary>
         public override void Dispose()
         {
-            lock (this)
-            {
-                IsOpen = false;
-            }
+            isOpen = false;
         }
 
         /// <returns> the underlying filesystem directory </returns>
@@ -446,7 +428,7 @@ namespace Lucene.Net.Store
             get
             {
                 EnsureOpen();
-                return Directory_Renamed;
+                return directory;
             }
         }
 
@@ -454,7 +436,7 @@ namespace Lucene.Net.Store
         /// For debug output. </summary>
         public override string ToString()
         {
-            return this.GetType().Name + "@" + Directory_Renamed + " lockFactory=" + LockFactory;
+            return this.GetType().Name + "@" + directory + " lockFactory=" + LockFactory;
         }
 
         /// <summary>
@@ -495,7 +477,7 @@ namespace Lucene.Net.Store
             {
                 this.Parent = parent;
                 this.Name = name;
-                File = new FileStream(Path.Combine(parent.Directory_Renamed.FullName, name), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+                File = new FileStream(Path.Combine(parent.directory.FullName, name), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
                 IsOpen = true;
             }
 
@@ -555,7 +537,7 @@ namespace Lucene.Net.Store
         /// <param name="name"></param>
         protected void Fsync(String name, bool isDir = false)
         {
-            IOUtils.Fsync(Path.Combine(Directory_Renamed.FullName, name), false);            
+            IOUtils.Fsync(Path.Combine(directory.FullName, name), isDir);            
         }
     }
 }

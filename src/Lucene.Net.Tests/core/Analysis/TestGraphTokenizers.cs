@@ -75,7 +75,7 @@ namespace Lucene.Net.Analysis
                 Upto = 0;
             }
 
-            public override bool IncrementToken()
+            public sealed override bool IncrementToken()
             {
                 if (Tokens == null)
                 {
@@ -123,7 +123,9 @@ namespace Lucene.Net.Analysis
                     int count = input.Read(buffer, 0, buffer.Length);
 
                     //.NET TextReader.Read(buff, int, int) returns 0, not -1 on no chars
-                    if (count == 0)
+                    // but in some cases, such as MockCharFilter, it overloads read and returns -1
+                    // so we should handle both 0 and -1 values
+                    if (count <= 0)
                     {
                         break;
                     }
