@@ -1,4 +1,3 @@
-using Apache.NMS.Util;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -6,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace Lucene.Net.Search
 {
+    using Index;
     using Lucene.Net.Randomized.Generators;
     using Lucene.Net.Support;
     using NUnit.Framework;
@@ -265,8 +265,8 @@ namespace Lucene.Net.Search
             IndexWriter writer = new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random())).SetMergeScheduler(new ConcurrentMergeScheduler()));
             writer.AddDocument(new Document());
             writer.Commit();
-            CountDownLatch awaitEnterWarm = new CountDownLatch(1);
-            CountDownLatch awaitClose = new CountDownLatch(1);
+            CountdownEvent awaitEnterWarm = new CountdownEvent(1);
+            CountdownEvent awaitClose = new CountdownEvent(1);
             AtomicBoolean triedReopen = new AtomicBoolean(false);
             TaskScheduler es = Random().NextBoolean() ? null : Executors.newCachedThreadPool(new NamedThreadFactory("testIntermediateClose"));
             SearcherFactory factory = new SearcherFactoryAnonymousInnerClassHelper2(this, awaitEnterWarm, awaitClose, triedReopen, es);
@@ -294,13 +294,13 @@ namespace Lucene.Net.Search
             {
                 Console.WriteLine("THREAD started");
             }
-            awaitEnterWarm.@await();
+            awaitEnterWarmWait();
             if (VERBOSE)
             {
                 Console.WriteLine("NOW call close");
             }
             searcherManager.Dispose();
-            awaitClose.countDown();
+            awaitClose.Signal();
             thread.Join();
             try
             {
@@ -327,12 +327,12 @@ namespace Lucene.Net.Search
         {
             private readonly TestSearcherManager OuterInstance;
 
-            private CountDownLatch AwaitEnterWarm;
-            private CountDownLatch AwaitClose;
+            private CountdownEvent AwaitEnterWarm;
+            private CountdownEvent AwaitClose;
             private AtomicBoolean TriedReopen;
             private TaskScheduler Es;
 
-            public SearcherFactoryAnonymousInnerClassHelper2(TestSearcherManager outerInstance, CountDownLatch awaitEnterWarm, CountDownLatch awaitClose, AtomicBoolean triedReopen, TaskScheduler es)
+            public SearcherFactoryAnonymousInnerClassHelper2(TestSearcherManager outerInstance, CountdownEvent awaitEnterWarm, CountdownEvent awaitClose, AtomicBoolean triedReopen, TaskScheduler es)
             {
                 this.OuterInstance = outerInstance;
                 this.AwaitEnterWarm = awaitEnterWarm;
@@ -347,8 +347,8 @@ namespace Lucene.Net.Search
                 {
                     if (TriedReopen.Get())
                     {
-                        AwaitEnterWarm.countDown();
-                        AwaitClose.@await();
+                        AwaitEnterWarm.Signal();
+                        AwaitClose.Wait();
                     }
                 }
                 catch (ThreadInterruptedException e)
@@ -389,7 +389,7 @@ namespace Lucene.Net.Search
                     SearcherManager.MaybeRefresh();
                     Success.Set(true);
                 }
-                catch (AlreadyClosedException e)
+                catch (AlreadyClosedException)
                 {
                     // expected
                 }
@@ -420,10 +420,12 @@ namespace Lucene.Net.Search
         }
 
         [Test]
-        public virtual void TestReferenceDecrementIllegally()
+        public virtual void TestReferenceDecrementIllegally([ValueSource(typeof(ConcurrentMergeSchedulers), "Values")]IConcurrentMergeScheduler scheduler)
         {
             Directory dir = NewDirectory();
-            IndexWriter writer = new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random())).SetMergeScheduler(new ConcurrentMergeScheduler()));
+            var config = NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random()))
+                            .SetMergeScheduler(scheduler);
+            IndexWriter writer = new IndexWriter(dir, config);
             SearcherManager sm = new SearcherManager(writer, false, new SearcherFactory());
             writer.AddDocument(new Document());
             writer.Commit();
@@ -437,15 +439,8 @@ namespace Lucene.Net.Search
             acquire = sm.Acquire();
             acquire.IndexReader.DecRef();
             sm.Release(acquire);
-            try
-            {
-                sm.Acquire();
-                Assert.Fail("acquire should have thrown an InvalidOperationException since we modified the refCount outside of the manager");
-            }
-            catch (InvalidOperationException ex)
-            {
-                //
-            }
+
+            Assert.Throws<InvalidOperationException>(() => sm.Acquire(), "acquire should have thrown an InvalidOperationException since we modified the refCount outside of the manager");
 
             // sm.Dispose(); -- already closed
             writer.Dispose();

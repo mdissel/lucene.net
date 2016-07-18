@@ -160,7 +160,7 @@ namespace Lucene.Net.Analysis.Util
                 int charCount = Character.CharCount(c);
                 bufferIndex += charCount;
 
-                if (IsTokenChar(c)) // if it's a token char
+                if (IsTokenChar((char)c)) // if it's a token char
                 {
                     if (length == 0) // start of token
                     {

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using Lucene.Net.Support;
 
 namespace Lucene.Net.Search
 {
@@ -60,7 +61,7 @@ namespace Lucene.Net.Search
     public sealed class SearcherManager : ReferenceManager<IndexSearcher>
     {
         private readonly SearcherFactory SearcherFactory;
-
+        
         /// <summary>
         /// Creates and returns a new SearcherManager from the given
         /// <seealso cref="IndexWriter"/>.
@@ -82,7 +83,7 @@ namespace Lucene.Net.Search
         ///          custom behavior.
         /// </param>
         /// <exception cref="IOException"> if there is a low-level I/O error </exception>
-        public SearcherManager(IndexWriter writer, bool applyAllDeletes, SearcherFactory searcherFactory)
+        public SearcherManager(IndexWriter writer, bool applyAllDeletes, SearcherFactory searcherFactory = null)
         {
             if (searcherFactory == null)
             {
@@ -189,6 +190,27 @@ namespace Lucene.Net.Search
                 }
             }
             return searcher;
+        }
+
+        public delegate void SearchExecutor(IndexSearcher arg);
+        public void ExecuteSearch(SearchExecutor searchFunc, OnErrorDelegate onErrorFunc = null)
+        {
+            var s = Acquire();
+            try
+            {
+                searchFunc(s);
+            }
+            catch (Exception e)
+            {
+                if (onErrorFunc != null)
+                {
+                    onErrorFunc(e);
+                }
+            }
+            finally
+            {
+                Release(s);
+            }
         }
     }
 }

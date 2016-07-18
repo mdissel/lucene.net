@@ -1,4 +1,3 @@
-using Apache.NMS.Util;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -336,17 +335,17 @@ namespace Lucene.Net.Index
             RandomIndexWriter modifier = new RandomIndexWriter(Random(), dir);
             int numThreads = AtLeast(2);
             ThreadClass[] threads = new ThreadClass[numThreads];
-            CountDownLatch latch = new CountDownLatch(1);
-            CountDownLatch doneLatch = new CountDownLatch(numThreads);
+            CountdownEvent latch = new CountdownEvent(1);
+            CountdownEvent doneLatch = new CountdownEvent(numThreads);
             for (int i = 0; i < numThreads; i++)
             {
                 int offset = i;
                 threads[i] = new ThreadAnonymousInnerClassHelper(this, modifier, latch, doneLatch, offset);
                 threads[i].Start();
             }
-            latch.countDown();
+            latch.Signal();
             //Wait for 1 millisecond
-            while (!doneLatch.@await(new TimeSpan(0, 0, 0, 0, 1)))
+            while (!doneLatch.Wait(new TimeSpan(0, 0, 0, 0, 1)))
             {
                 modifier.DeleteAll();
                 if (VERBOSE)
@@ -376,11 +375,11 @@ namespace Lucene.Net.Index
             private readonly TestIndexWriterDelete OuterInstance;
 
             private RandomIndexWriter Modifier;
-            private CountDownLatch Latch;
-            private CountDownLatch DoneLatch;
+            private CountdownEvent Latch;
+            private CountdownEvent DoneLatch;
             private int Offset;
 
-            public ThreadAnonymousInnerClassHelper(TestIndexWriterDelete outerInstance, RandomIndexWriter modifier, CountDownLatch latch, CountDownLatch doneLatch, int offset)
+            public ThreadAnonymousInnerClassHelper(TestIndexWriterDelete outerInstance, RandomIndexWriter modifier, CountdownEvent latch, CountdownEvent doneLatch, int offset)
             {
                 this.OuterInstance = outerInstance;
                 this.Modifier = modifier;
@@ -395,7 +394,7 @@ namespace Lucene.Net.Index
                 int value = 100;
                 try
                 {
-                    Latch.@await();
+                    Latch.Wait();
                     for (int j = 0; j < 1000; j++)
                     {
                         Document doc = new Document();
@@ -419,7 +418,7 @@ namespace Lucene.Net.Index
                 }
                 finally
                 {
-                    DoneLatch.countDown();
+                    DoneLatch.Signal();
                     if (VERBOSE)
                     {
                         Console.WriteLine("\tThread[" + Offset + "]: done indexing");
@@ -543,22 +542,24 @@ namespace Lucene.Net.Index
         }
 
         [Test]
-        public virtual void TestDeletesOnDiskFull()
+        public virtual void TestDeletesOnDiskFull(
+            [ValueSource(typeof(ConcurrentMergeSchedulers), "Values")]IConcurrentMergeScheduler scheduler)
         {
-            DoTestOperationsOnDiskFull(false);
+            DoTestOperationsOnDiskFull(scheduler, false);
         }
 
         [Test]
-        public virtual void TestUpdatesOnDiskFull()
+        public virtual void TestUpdatesOnDiskFull(
+            [ValueSource(typeof(ConcurrentMergeSchedulers), "Values")]IConcurrentMergeScheduler scheduler)
         {
-            DoTestOperationsOnDiskFull(true);
+            DoTestOperationsOnDiskFull(scheduler, true);
         }
 
         /// <summary>
         /// Make sure if modifier tries to commit but hits disk full that modifier
         /// remains consistent and usable. Similar to TestIndexReader.testDiskFull().
         /// </summary>
-        private void DoTestOperationsOnDiskFull(bool updates)
+        private void DoTestOperationsOnDiskFull(IConcurrentMergeScheduler scheduler, bool updates)
         {
             Term searchTerm = new Term("content", "aaa");
             int START_COUNT = 157;
@@ -599,8 +600,15 @@ namespace Lucene.Net.Index
                 MockDirectoryWrapper dir = new MockDirectoryWrapper(Random(), new RAMDirectory(startDir, NewIOContext(Random())));
                 dir.PreventDoubleWrite = false;
                 dir.AllowRandomFileNotFoundException = false;
-                IndexWriter modifier = new IndexWriter(dir, NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random(), MockTokenizer.WHITESPACE, false)).SetMaxBufferedDocs(1000).SetMaxBufferedDeleteTerms(1000).SetMergeScheduler(new ConcurrentMergeScheduler()));
-                ((ConcurrentMergeScheduler)modifier.Config.MergeScheduler).SetSuppressExceptions();
+
+                var config = NewIndexWriterConfig(TEST_VERSION_CURRENT, new MockAnalyzer(Random(), MockTokenizer.WHITESPACE, false))
+                                .SetMaxBufferedDocs(1000)
+                                .SetMaxBufferedDeleteTerms(1000)
+                                .SetMergeScheduler(scheduler);
+
+                scheduler.SetSuppressExceptions();
+
+                IndexWriter modifier = new IndexWriter(dir, config);
 
                 // For each disk size, first try to commit against
                 // dir that will hit random IOExceptions & disk

@@ -1,5 +1,4 @@
 using System.Numerics;
-using ICSharpCode.SharpZipLib.Zip;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
 using System;
@@ -124,111 +123,16 @@ namespace Lucene.Net.Util
             return unremoved;
         }
 
-        /// <summary>
-        /// Convenience method unzipping zipName into destDir, cleaning up
-        /// destDir first.
-        /// </summary>
-        public static void Unzip(FileInfo zipName, DirectoryInfo destDir)
-        {
-            System.IO.Directory.Delete(destDir.FullName, true);
-            destDir.CreateSubdirectory(destDir.FullName);// mkdir();
-
-            using (ZipInputStream s = new ZipInputStream(File.OpenRead(zipName.FullName)))
-            {
-                ZipEntry entry;
-                while ((entry = s.GetNextEntry()) != null)
-                {
-                    string directoryName = Path.GetDirectoryName(entry.Name); //Directory where file is stored
-                    string fileName = Path.GetFileName(entry.Name); //Name of file (if it is one)
-                    DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(destDir.FullName, entry.Name));
-                    if (entry.IsDirectory)
-                    {
-                        targetDir.Create();
-                    }
-                    else
-                    {
-                        if (targetDir.Parent != null)
-                        {
-                            // be on the safe side: do not rely on that directories are always extracted
-                            // before their children (although this makes sense, but is it guaranteed?)
-                            targetDir.Parent.Create();
-                        }
-
-                        if (fileName != String.Empty)
-                        {
-                            using (FileStream streamWriter = File.Create(entry.Name))
-                            {
-                                int size = 2048;
-                                byte[] data = new byte[2048];
-                                while (true)
-                                {
-                                    size = s.Read(data, 0, data.Length);
-                                    if (size > 0)
-                                    {
-                                        streamWriter.Write(data, 0, size);
-                                    }
-                                    else
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            /*
-           ZipFile zipFile = new ZipFile(zipName);
-           IEnumerator<FileInfo> entries = zipFile.entries();
-
-           while (entries.MoveNext())
-           {
-             ZipEntry entry = entries.Current;
-
-             Stream @in = zipFile.getInputStream(entry);
-             DirectoryInfo targetFile = new DirectoryInfo(destDir, entry.Name);
-             if (entry.Directory)
-             {
-               // allow unzipping with directory structure
-               //targetFile.mkdirs();
-                 targetFile.Create();
-             }
-             else
-             {
-               if (targetFile.ParentFile != null)
-               {
-                 // be on the safe side: do not rely on that directories are always extracted
-                 // before their children (although this makes sense, but is it guaranteed?)
-                 targetFile.ParentFile.mkdirs();
-               }
-               Stream @out = new BufferedOutputStream(new FileOutputStream(targetFile));
-
-               byte[] buffer = new byte[8192];
-               int len;
-               while ((len = @in.Read(buffer, 0, buffer.Length)) >= 0)
-               {
-                 @out.Write(buffer, 0, len);
-               }
-
-               @in.Close();
-               @out.Close();
-             }
-           }
-
-           zipFile.close();*/
-        }
-
         public static void SyncConcurrentMerges(IndexWriter writer)
         {
             SyncConcurrentMerges(writer.Config.MergeScheduler);
         }
 
-        public static void SyncConcurrentMerges(MergeScheduler ms)
+        public static void SyncConcurrentMerges(IMergeScheduler ms)
         {
-            if (ms is ConcurrentMergeScheduler)
+            if (ms is IConcurrentMergeScheduler)
             {
-                ((ConcurrentMergeScheduler)ms).Sync();
+                ((IConcurrentMergeScheduler)ms).Sync();
             }
         }
 
@@ -1012,11 +916,11 @@ namespace Lucene.Net.Util
                 tmp.SegmentsPerTier = Math.Min(5, tmp.SegmentsPerTier);
                 tmp.NoCFSRatio = 1.0;
             }
-            MergeScheduler ms = w.Config.MergeScheduler;
-            if (ms is ConcurrentMergeScheduler)
+            IMergeScheduler ms = w.Config.MergeScheduler;
+            if (ms is IConcurrentMergeScheduler)
             {
                 // wtf... shouldnt it be even lower since its 1 by default?!?!
-                ((ConcurrentMergeScheduler)ms).SetMaxMergesAndThreads(3, 2);
+                ((IConcurrentMergeScheduler)ms).SetMaxMergesAndThreads(3, 2);
             }
         }
 
